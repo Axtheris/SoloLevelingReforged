@@ -1,9 +1,8 @@
 package net.xelpha.sololevelingreforged.ui.tabs;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
 import net.xelpha.sololevelingreforged.network.AllocateStatPacket;
@@ -11,20 +10,21 @@ import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
 import net.xelpha.sololevelingreforged.ui.components.SLPanel;
 import net.xelpha.sololevelingreforged.ui.components.SLProgressBar;
 import net.xelpha.sololevelingreforged.ui.components.SLStatDisplay;
+import net.xelpha.sololevelingreforged.ui.core.UIAnimator;
 import net.xelpha.sololevelingreforged.ui.core.UIColors;
 import net.xelpha.sololevelingreforged.ui.core.UIRenderer;
-import org.joml.Quaternionf;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * Status tab showing player model, level, resources, and stat allocation
+ * Uses Minecraft's built-in entity rendering for proper player display
  */
 public class StatusTab extends BaseTab {
     
     // Layout constants
-    private static final int PLAYER_PANEL_WIDTH = 140;
+    private static final int PLAYER_PANEL_WIDTH = 160;
     private static final int STATS_PANEL_MARGIN = 12;
     
     // Components
@@ -42,6 +42,7 @@ public class StatusTab extends BaseTab {
     private float modelRotation = 0;
     private boolean draggingModel = false;
     private double lastMouseX;
+    private long animationTick = 0;
     
     public StatusTab(int x, int y, int width, int height) {
         super(x, y, width, height);
@@ -57,7 +58,7 @@ public class StatusTab extends BaseTab {
     protected void initComponents() {
         int padding = 12;
         
-        // Left side: Player model panel
+        // Left side: Player model panel (wider)
         playerPanel = new SLPanel(x + padding, y + padding, PLAYER_PANEL_WIDTH, height - padding * 2)
             .withTitle("PLAYER")
             .withCornerDecorations(true);
@@ -153,131 +154,172 @@ public class StatusTab extends BaseTab {
         ModNetworkRegistry.CHANNEL.sendToServer(new AllocateStatPacket(statKey));
     }
     
+    
+    @Override
+    public void tick() {
+        super.tick();
+        animationTick++;
+        
+        // Auto-rotate slowly when not dragging
+        if (!draggingModel) {
+            modelRotation = (float) Math.sin(animationTick * 0.015) * 20;
+        }
+    }
+    
     @Override
     protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Render player model in the player panel
+        // Render player model using Minecraft's built-in renderer
         renderPlayerModel(graphics, mouseX, mouseY);
         
-        // Render AP indicator
-        if (capability != null) {
-            int ap = capability.getAvailableAP();
-            String apText = "AP: " + ap;
-            int apColor = ap > 0 ? UIColors.TEXT_SUCCESS : UIColors.TEXT_SECONDARY;
-            
-            // Draw AP below player model
-            int apX = playerPanel.getX() + playerPanel.getWidth() / 2;
-            int apY = playerPanel.getY() + playerPanel.getHeight() - 24;
-            UIRenderer.drawCenteredText(graphics, apText, apX, apY, apColor);
-            
-            if (ap > 0) {
-                UIRenderer.drawCenteredText(graphics, "Points Available!", apX, apY + 10, UIColors.TEXT_SUCCESS);
-            }
-        }
-        
-        // Render title/rank if available
-        if (capability != null) {
-            String title = capability.getCurrentTitle();
-            String levelText = "Lv. " + capability.getLevel();
-            
-            int titleX = playerPanel.getX() + playerPanel.getWidth() / 2;
-            int titleY = playerPanel.getY() + 30;
-            
-            UIRenderer.drawCenteredText(graphics, levelText, titleX, titleY, UIColors.PRIMARY);
-            UIRenderer.drawCenteredText(graphics, title, titleX, titleY + 12, UIColors.TEXT_SECONDARY);
-        }
+        // Render player info
+        renderPlayerInfo(graphics);
     }
     
     private void renderPlayerModel(GuiGraphics graphics, int mouseX, int mouseY) {
         if (player == null) return;
         
-        int modelX = playerPanel.getX() + playerPanel.getWidth() / 2;
-        int modelY = playerPanel.getY() + playerPanel.getHeight() - 50;
+        int centerX = playerPanel.getX() + playerPanel.getWidth() / 2;
+        int modelY = playerPanel.getY() + playerPanel.getHeight() - 60;
+        
+        // Draw decorative platform
+        drawPlatform(graphics, centerX, modelY + 5);
+        
+        // Draw glow behind player
+        drawPlayerGlow(graphics, centerX, modelY - 50);
+        
+        // Use Minecraft's built-in entity rendering
         int scale = 50;
         
-        // Draw background glow
-        int glowColor = UIColors.withAlpha(UIColors.PRIMARY, 20);
-        int glowRadius = 45;
-        graphics.fill(modelX - glowRadius, modelY - glowRadius * 2, 
-                     modelX + glowRadius, modelY + 10, glowColor);
-        
-        // Calculate rotation based on mouse or auto-rotate
-        float rotation;
+        // Calculate look direction based on mouse or rotation
+        float lookX, lookY;
         if (draggingModel) {
-            rotation = modelRotation;
+            // Use manual rotation
+            lookX = centerX + modelRotation * 3;
+            lookY = modelY - 60;
         } else {
-            // Subtle auto-rotation when not dragging
-            rotation = (float) (System.currentTimeMillis() / 100.0 % 360);
-            rotation = (float) Math.sin(rotation * 0.02) * 15;
+            // Use auto-rotation
+            lookX = centerX + modelRotation * 3;
+            lookY = modelY - 60;
         }
         
-        drawEntity(graphics, modelX, modelY, scale, rotation, 0, player);
+        // Use Minecraft's InventoryScreen helper - proper signature for 1.20.x
+        InventoryScreen.renderEntityInInventoryFollowsMouse(
+            graphics,
+            centerX,        // x position
+            modelY,         // y position
+            scale,          // scale
+            lookX - mouseX, // look direction X offset
+            lookY - mouseY, // look direction Y offset  
+            player          // entity to render
+        );
     }
     
-    private void drawEntity(GuiGraphics guiGraphics, int x, int y, int scale, 
-                           float rotationY, float rotationX, LocalPlayer entity) {
-        PoseStack posestack = guiGraphics.pose();
-        posestack.pushPose();
-        posestack.translate((float) x, (float) y, 1050.0F);
-        posestack.scale(1.0F, 1.0F, -1.0F);
-        RenderSystem.applyModelViewMatrix();
+    /**
+     * Draws a glowing platform under the player
+     */
+    private void drawPlatform(GuiGraphics graphics, int centerX, int centerY) {
+        int baseWidth = 60;
+        int baseHeight = 8;
         
-        PoseStack modelPose = new PoseStack();
-        modelPose.translate(0.0F, 0.0F, 1000.0F);
-        modelPose.scale((float) scale, (float) scale, (float) scale);
+        // Glow layers
+        for (int i = 3; i >= 0; i--) {
+            int w = baseWidth + i * 10;
+            int h = baseHeight + i * 3;
+            int alpha = 20 - i * 4;
+            graphics.fill(centerX - w / 2, centerY - h / 2, 
+                         centerX + w / 2, centerY + h / 2, 
+                         UIColors.withAlpha(UIColors.PRIMARY, alpha));
+        }
         
-        // Apply rotation
-        Quaternionf quaternionf = (new Quaternionf()).rotateZ((float) Math.PI);
-        Quaternionf rotationQuat = (new Quaternionf()).rotateX(rotationX * ((float) Math.PI / 180.0F));
-        quaternionf.mul(rotationQuat);
-        modelPose.mulPose(quaternionf);
+        // Core platform
+        graphics.fill(centerX - baseWidth / 2, centerY - baseHeight / 2, 
+                     centerX + baseWidth / 2, centerY + baseHeight / 2, 
+                     UIColors.withAlpha(UIColors.PRIMARY_DIM, 80));
         
-        // Save original rotations
-        float f2 = entity.yBodyRot;
-        float f3 = entity.getYRot();
-        float f4 = entity.getXRot();
-        float f5 = entity.yHeadRotO;
-        float f6 = entity.yHeadRot;
+        // Top edge highlight
+        UIRenderer.horizontalLine(graphics, centerX - baseWidth / 2, centerY - baseHeight / 2, 
+                                 baseWidth, UIColors.withAlpha(UIColors.PRIMARY, 150));
+    }
+    
+    /**
+     * Draws glow effect behind player based on power level
+     */
+    private void drawPlayerGlow(GuiGraphics graphics, int centerX, int centerY) {
+        int glowColor = UIColors.PRIMARY;
         
-        // Apply custom rotation
-        entity.yBodyRot = 180.0F + rotationY;
-        entity.setYRot(180.0F + rotationY);
-        entity.setXRot(-rotationX);
-        entity.yHeadRot = entity.getYRot();
-        entity.yHeadRotO = entity.getYRot();
+        if (capability != null) {
+            String title = capability.getCurrentTitle();
+            if (title.toLowerCase().contains("shadow") || title.toLowerCase().contains("monarch")) {
+                glowColor = UIColors.SHADOW_ENERGY;
+            } else if (capability.getLevel() >= 50) {
+                glowColor = UIColors.TERTIARY;
+            }
+        }
         
-        var entityrenderdispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        rotationQuat.conjugate();
-        entityrenderdispatcher.overrideCameraOrientation(rotationQuat);
-        entityrenderdispatcher.setRenderShadow(false);
+        float pulse = UIAnimator.pulse(animationTick, 0.05f);
+        int baseAlpha = (int)(15 + 10 * pulse);
         
-        RenderSystem.runAsFancy(() -> {
-            entityrenderdispatcher.render(entity, 0.0D, 0.0D, 0.0D, 0.0F, 1.0F, 
-                                         modelPose, guiGraphics.bufferSource(), 15728880);
-        });
+        for (int i = 4; i >= 0; i--) {
+            int radius = 40 + i * 12;
+            int alpha = baseAlpha / (i + 1);
+            graphics.fill(centerX - radius, centerY - radius, 
+                         centerX + radius, centerY + radius, 
+                         UIColors.withAlpha(glowColor, alpha));
+        }
+    }
+    
+    /**
+     * Renders player info (level, title, AP)
+     */
+    private void renderPlayerInfo(GuiGraphics graphics) {
+        if (capability == null) return;
         
-        guiGraphics.flush();
-        entityrenderdispatcher.setRenderShadow(true);
+        int centerX = playerPanel.getX() + playerPanel.getWidth() / 2;
+        int titleY = playerPanel.getY() + 28;
         
-        // Restore original rotations
-        entity.yBodyRot = f2;
-        entity.setYRot(f3);
-        entity.setXRot(f4);
-        entity.yHeadRotO = f5;
-        entity.yHeadRot = f6;
+        // Level with glow effect
+        String levelText = "Lv. " + capability.getLevel();
+        int levelWidth = UIRenderer.getTextWidth(levelText);
         
-        posestack.popPose();
-        RenderSystem.applyModelViewMatrix();
+        graphics.fill(centerX - levelWidth / 2 - 4, titleY - 2, 
+                     centerX + levelWidth / 2 + 4, titleY + 10, 
+                     UIColors.withAlpha(UIColors.PRIMARY, 30));
+        
+        UIRenderer.drawCenteredText(graphics, levelText, centerX, titleY, UIColors.PRIMARY);
+        
+        // Title
+        String title = capability.getCurrentTitle();
+        UIRenderer.drawCenteredText(graphics, title, centerX, titleY + 14, UIColors.TEXT_SECONDARY);
+        
+        // AP indicator
+        int ap = capability.getAvailableAP();
+        int apY = playerPanel.getY() + playerPanel.getHeight() - 45;
+        
+        if (ap > 0) {
+            float pulse = UIAnimator.pulse(animationTick, 0.1f);
+            int apColor = UIColors.lerp(UIColors.TEXT_SUCCESS, UIColors.brighten(UIColors.TEXT_SUCCESS, 1.5f), pulse);
+            
+            graphics.fill(centerX - 45, apY - 4, centerX + 45, apY + 26, 
+                         UIColors.withAlpha(UIColors.TEXT_SUCCESS, 25));
+            
+            UIRenderer.drawCenteredText(graphics, "AP: " + ap, centerX, apY, apColor);
+            UIRenderer.drawCenteredText(graphics, "Allocate Points!", centerX, apY + 12, apColor);
+        } else {
+            UIRenderer.drawCenteredText(graphics, "AP: 0", centerX, apY + 6, UIColors.TEXT_SECONDARY);
+        }
+        
+        // Drag hint
+        UIRenderer.drawCenteredText(graphics, "Drag to rotate", centerX, 
+                                   playerPanel.getY() + playerPanel.getHeight() - 14, UIColors.TEXT_MUTED);
     }
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Check if clicking on player model area for rotation
         if (button == 0 && isMouseOverPlayerModel(mouseX, mouseY)) {
             draggingModel = true;
             lastMouseX = mouseX;
             return true;
         }
-        
         return super.mouseClicked(mouseX, mouseY, button);
     }
     
@@ -293,7 +335,9 @@ public class StatusTab extends BaseTab {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (draggingModel) {
-            modelRotation += (float) (mouseX - lastMouseX) * 0.5f;
+            modelRotation += (float) (mouseX - lastMouseX) * 1.5f;
+            if (modelRotation > 180) modelRotation -= 360;
+            if (modelRotation < -180) modelRotation += 360;
             lastMouseX = mouseX;
             return true;
         }
@@ -303,11 +347,7 @@ public class StatusTab extends BaseTab {
     private boolean isMouseOverPlayerModel(double mouseX, double mouseY) {
         if (playerPanel == null) return false;
         
-        int modelX = playerPanel.getX() + playerPanel.getWidth() / 2;
-        int modelY = playerPanel.getY() + playerPanel.getHeight() / 2;
-        int radius = 60;
-        
-        return mouseX >= modelX - radius && mouseX <= modelX + radius 
-            && mouseY >= modelY - radius && mouseY <= modelY + radius;
+        return mouseX >= playerPanel.getX() + 10 && mouseX <= playerPanel.getX() + playerPanel.getWidth() - 10
+            && mouseY >= playerPanel.getContentStartY() + 10 && mouseY <= playerPanel.getY() + playerPanel.getHeight() - 70;
     }
 }

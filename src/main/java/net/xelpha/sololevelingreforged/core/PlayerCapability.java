@@ -220,36 +220,36 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
     }
 
     // ===== SYSTEM INVENTORY =====
+    // System Inventory allows UNLIMITED stacking - no max stack size limits!
+    // This is the Solo Leveling dimensional storage - it can hold anything.
     
     /**
      * Add an item to the System Inventory (Solo Leveling dimensional storage)
+     * Supports UNLIMITED stack sizes - items will merge into existing stacks.
      * @param stack The item to store
      * @return true if successfully stored
      */
     public boolean addItemToInventory(ItemStack stack) {
         if (stack.isEmpty()) return false;
         
-        // First try to stack with existing items
+        // First try to stack with existing items (unlimited stacking!)
         for (ItemStack existing : systemInventory) {
-            if (ItemStack.isSameItemSameTags(existing, stack) && existing.getCount() < existing.getMaxStackSize()) {
-                int space = existing.getMaxStackSize() - existing.getCount();
-                int toAdd = Math.min(space, stack.getCount());
-                existing.grow(toAdd);
-                stack.shrink(toAdd);
-                if (stack.isEmpty()) return true;
+            if (ItemStack.isSameItemSameTags(existing, stack)) {
+                // System inventory has NO stack limit - add all to existing
+                existing.grow(stack.getCount());
+                stack.setCount(0);
+                return true;
             }
         }
         
-        // Add remaining as new slot(s)
-        while (!stack.isEmpty() && systemInventory.size() < MAX_INVENTORY_SLOTS) {
-            int toAdd = Math.min(stack.getMaxStackSize(), stack.getCount());
-            ItemStack newStack = stack.copy();
-            newStack.setCount(toAdd);
-            systemInventory.add(newStack);
-            stack.shrink(toAdd);
+        // No existing stack found - add as new entry
+        if (systemInventory.size() < MAX_INVENTORY_SLOTS) {
+            systemInventory.add(stack.copy());
+            stack.setCount(0);
+            return true;
         }
         
-        return stack.isEmpty();
+        return false; // Inventory full (shouldn't happen with 1000 slots)
     }
     
     /**
