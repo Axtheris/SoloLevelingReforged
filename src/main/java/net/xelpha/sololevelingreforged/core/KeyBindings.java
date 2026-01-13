@@ -15,15 +15,25 @@ import org.lwjgl.glfw.GLFW;
 @Mod.EventBusSubscriber(modid = Sololevelingreforged.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class KeyBindings {
 
+    // Open System Console (K key)
     public static final KeyMapping OPEN_STATS = new KeyMapping(
         "key.sololevelingreforged.open_stats",
         InputConstants.Type.KEYSYM,
         GLFW.GLFW_KEY_K,
         "key.categories.sololevelingreforged"
     );
+    
+    // Store held item to System Inventory (V key - like "vault")
+    public static final KeyMapping STORE_ITEM = new KeyMapping(
+        "key.sololevelingreforged.store_item",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_V,
+        "key.categories.sololevelingreforged"
+    );
 
     @SubscribeEvent
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_STATS);
+        event.register(STORE_ITEM);
     }
 }

@@ -38,5 +38,14 @@ public class ModNetworkRegistry {
             AllocateStatPacket::new,
             AllocateStatPacket::handle
         );
+        
+        // Register store item packet
+        CHANNEL.registerMessage(
+            packetId++,
+            StoreItemPacket.class,
+            StoreItemPacket::encode,
+            StoreItemPacket::new,
+            StoreItemPacket::handle
+        );
     }
 }

@@ -3,6 +3,7 @@
 
   "key.categories.sololevelingreforged": "Solo Leveling System",
   "key.sololevelingreforged.open_stats": "Open System Console",
+  "key.sololevelingreforged.store_item": "Store Item in System",
   "key.sololevelingreforged.show_stats": "Show Player Stats",
 
   "sololevelingreforged.command.stats.no_ap": "No Ability Points available to allocate!",

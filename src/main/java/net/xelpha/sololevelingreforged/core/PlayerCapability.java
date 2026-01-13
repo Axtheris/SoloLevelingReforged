@@ -2,8 +2,11 @@ package net.xelpha.sololevelingreforged.core;
 
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.common.capabilities.CapabilityToken;
@@ -12,6 +15,9 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.network.PacketDistributor;
 import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
 import net.xelpha.sololevelingreforged.network.SyncCapabilityPacket;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Player Capability for Solo Leveling System
@@ -48,6 +54,11 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
     // System Messages
     private String lastSystemMessage = "";
     private long messageTimestamp = 0;
+    
+    // System Inventory (Solo Leveling's unlimited dimensional storage)
+    private final List<ItemStack> systemInventory = new ArrayList<>();
+    private static final int MAX_INVENTORY_SLOTS = 1000; // Large but not infinite for performance
+    private int gold = 0; // System currency
 
     // Reference to player for calculations
     private Player player;
@@ -208,6 +219,109 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
         syncToClient(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer ? serverPlayer : null);
     }
 
+    // ===== SYSTEM INVENTORY =====
+    
+    /**
+     * Add an item to the System Inventory (Solo Leveling dimensional storage)
+     * @param stack The item to store
+     * @return true if successfully stored
+     */
+    public boolean addItemToInventory(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+        
+        // First try to stack with existing items
+        for (ItemStack existing : systemInventory) {
+            if (ItemStack.isSameItemSameTags(existing, stack) && existing.getCount() < existing.getMaxStackSize()) {
+                int space = existing.getMaxStackSize() - existing.getCount();
+                int toAdd = Math.min(space, stack.getCount());
+                existing.grow(toAdd);
+                stack.shrink(toAdd);
+                if (stack.isEmpty()) return true;
+            }
+        }
+        
+        // Add remaining as new slot(s)
+        while (!stack.isEmpty() && systemInventory.size() < MAX_INVENTORY_SLOTS) {
+            int toAdd = Math.min(stack.getMaxStackSize(), stack.getCount());
+            ItemStack newStack = stack.copy();
+            newStack.setCount(toAdd);
+            systemInventory.add(newStack);
+            stack.shrink(toAdd);
+        }
+        
+        return stack.isEmpty();
+    }
+    
+    /**
+     * Remove an item from the System Inventory
+     * @param index The slot index to remove from
+     * @return The removed item stack, or empty if invalid
+     */
+    public ItemStack removeItemFromInventory(int index) {
+        if (index >= 0 && index < systemInventory.size()) {
+            return systemInventory.remove(index);
+        }
+        return ItemStack.EMPTY;
+    }
+    
+    /**
+     * Get an item from the System Inventory without removing it
+     * @param index The slot index
+     * @return The item stack, or empty if invalid
+     */
+    public ItemStack getInventoryItem(int index) {
+        if (index >= 0 && index < systemInventory.size()) {
+            return systemInventory.get(index);
+        }
+        return ItemStack.EMPTY;
+    }
+    
+    /**
+     * Get all items in the System Inventory
+     */
+    public List<ItemStack> getSystemInventory() {
+        return systemInventory;
+    }
+    
+    /**
+     * Get the number of items in the System Inventory
+     */
+    public int getInventorySize() {
+        return systemInventory.size();
+    }
+    
+    /**
+     * Get max inventory slots
+     */
+    public int getMaxInventorySlots() {
+        return MAX_INVENTORY_SLOTS;
+    }
+    
+    /**
+     * Get player's gold currency
+     */
+    public int getGold() {
+        return gold;
+    }
+    
+    /**
+     * Add gold to player
+     */
+    public void addGold(int amount) {
+        this.gold = Math.max(0, this.gold + amount);
+    }
+    
+    /**
+     * Spend gold (returns false if insufficient)
+     */
+    public boolean spendGold(int amount) {
+        if (gold >= amount) {
+            gold -= amount;
+            return true;
+        }
+        return false;
+    }
+
     // ===== GETTERS =====
 
     public int getLevel() { return level; }
@@ -329,6 +443,16 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
         // Messages
         tag.putString("lastSystemMessage", lastSystemMessage);
         tag.putLong("messageTimestamp", messageTimestamp);
+        
+        // System Inventory
+        ListTag inventoryList = new ListTag();
+        for (ItemStack stack : systemInventory) {
+            if (!stack.isEmpty()) {
+                inventoryList.add(stack.save(new CompoundTag()));
+            }
+        }
+        tag.put("systemInventory", inventoryList);
+        tag.putInt("gold", gold);
 
         return tag;
     }
@@ -359,6 +483,19 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
         // Messages
         lastSystemMessage = tag.getString("lastSystemMessage");
         messageTimestamp = tag.getLong("messageTimestamp");
+        
+        // System Inventory
+        systemInventory.clear();
+        if (tag.contains("systemInventory", Tag.TAG_LIST)) {
+            ListTag inventoryList = tag.getList("systemInventory", Tag.TAG_COMPOUND);
+            for (int i = 0; i < inventoryList.size(); i++) {
+                ItemStack stack = ItemStack.of(inventoryList.getCompound(i));
+                if (!stack.isEmpty()) {
+                    systemInventory.add(stack);
+                }
+            }
+        }
+        gold = tag.getInt("gold");
     }
 
     // ===== CAPABILITY PROVIDER =====

@@ -25,9 +25,9 @@ import java.util.List;
  * Features:
  * - Tab-based navigation (Status, Skills, Quests, Inventory)
  * - Smooth animations and transitions
- * - Draggable window
- * - Modern, immersive design
- * - Responsive layout
+ * - Static centered window (no dragging for performance)
+ * - Modern, immersive design with particles
+ * - Scrollable content areas
  */
 public class SystemConsoleScreen extends Screen {
     
@@ -38,17 +38,12 @@ public class SystemConsoleScreen extends Screen {
     private static final int TAB_BAR_HEIGHT = 32;
     private static final int BORDER_SIZE = 1;
     
-    // Position
+    // Position (always centered)
     private int guiLeft, guiTop;
-    
-    // Dragging
-    private boolean isDragging = false;
-    private int dragOffsetX, dragOffsetY;
     
     // Animation
     private final UIAnimator.AnimatedValue scaleProgress = new UIAnimator.AnimatedValue(0);
     private final UIAnimator.AnimatedValue fadeProgress = new UIAnimator.AnimatedValue(0);
-    private long openTime;
     private long animationTick = 0;
     
     // Components
@@ -64,6 +59,10 @@ public class SystemConsoleScreen extends Screen {
     private final RandomSource random = RandomSource.create();
     private final List<GlowParticle> particles = new ArrayList<>();
     
+    // Tooltip
+    private List<String> currentTooltip = null;
+    private int tooltipX, tooltipY;
+    
     public SystemConsoleScreen() {
         super(Component.literal("System Console"));
         this.player = Minecraft.getInstance().player;
@@ -76,12 +75,11 @@ public class SystemConsoleScreen extends Screen {
     protected void init() {
         super.init();
         
-        // Center the window
+        // Always center the window
         this.guiLeft = (this.width - WINDOW_WIDTH) / 2;
         this.guiTop = (this.height - WINDOW_HEIGHT) / 2;
         
-        // Start animation
-        openTime = System.currentTimeMillis();
+        // Start opening animation
         scaleProgress.animateTo(1f, 300, UIAnimator::easeOutBack);
         fadeProgress.animateTo(1f, 200);
         
@@ -124,6 +122,9 @@ public class SystemConsoleScreen extends Screen {
     }
     
     private void onTabChanged(int newIndex) {
+        // Play tab switch sound
+        playClickSound();
+        
         // Deactivate old tab
         if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
             tabs.get(activeTabIndex).onTabDeactivated();
@@ -145,9 +146,19 @@ public class SystemConsoleScreen extends Screen {
         }
     }
     
+    /**
+     * Set a tooltip to be rendered this frame
+     */
+    public void setTooltip(List<String> lines, int x, int y) {
+        this.currentTooltip = lines;
+        this.tooltipX = x;
+        this.tooltipY = y;
+    }
+    
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         animationTick++;
+        currentTooltip = null; // Reset tooltip each frame
         
         // Render darkened background
         renderBackground(graphics);
@@ -160,7 +171,7 @@ public class SystemConsoleScreen extends Screen {
         int centerX = guiLeft + WINDOW_WIDTH / 2;
         int centerY = guiTop + WINDOW_HEIGHT / 2;
         
-        // Apply scaling transform
+        // Apply scaling transform for opening animation
         PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
         
@@ -181,6 +192,11 @@ public class SystemConsoleScreen extends Screen {
         
         poseStack.popPose();
         
+        // Render tooltip on top of everything (outside pose transform)
+        if (currentTooltip != null && !currentTooltip.isEmpty()) {
+            net.xelpha.sololevelingreforged.ui.components.SLTooltip.render(graphics, tooltipX, tooltipY, currentTooltip);
+        }
+        
         super.render(graphics, mouseX, mouseY, partialTick);
     }
     
@@ -189,7 +205,6 @@ public class SystemConsoleScreen extends Screen {
         
         // Outer glow effect
         int glowAlpha = (int) (30 * fade);
-        int glowColor = UIColors.withAlpha(UIColors.PRIMARY, glowAlpha);
         for (int i = 5; i >= 1; i--) {
             graphics.fill(guiLeft - i, guiTop - i, 
                          guiLeft + WINDOW_WIDTH + i, guiTop + WINDOW_HEIGHT + i, 
@@ -222,9 +237,9 @@ public class SystemConsoleScreen extends Screen {
             tabs.get(activeTabIndex).render(graphics, mouseX, mouseY, partialTick);
         }
         
-        // Scanline effect
-        int scanlineColor = UIColors.withAlpha(0xFF000000, 8);
-        UIRenderer.drawScanlines(graphics, guiLeft + 1, guiTop + 1, WINDOW_WIDTH - 2, WINDOW_HEIGHT - 2, scanlineColor, 3);
+        // Subtle scanline effect
+        int scanlineColor = UIColors.withAlpha(0xFF000000, 6);
+        UIRenderer.drawScanlines(graphics, guiLeft + 1, guiTop + 1, WINDOW_WIDTH - 2, WINDOW_HEIGHT - 2, scanlineColor, 4);
     }
     
     private void renderHeader(GuiGraphics graphics, int mouseX, int mouseY, float fade) {
@@ -259,10 +274,18 @@ public class SystemConsoleScreen extends Screen {
         int statusColor = UIColors.lerp(UIColors.PRIMARY_DIM, UIColors.PRIMARY, pulse);
         UIRenderer.fill(graphics, titleX + titleWidth + 10, titleY + 2, 6, 6, UIColors.withAlpha(statusColor, alpha));
         
-        // Close button
+        // Close button with hover effect
         int closeX = guiLeft + WINDOW_WIDTH - 22;
         int closeY = headerY + (HEADER_HEIGHT - 10) / 2;
         boolean closeHovered = UIRenderer.isMouseOver(mouseX, mouseY, closeX - 2, closeY - 2, 14, 14);
+        
+        if (closeHovered) {
+            // Hover glow
+            graphics.fill(closeX - 4, closeY - 4, closeX + 12, closeY + 12, 
+                         UIColors.withAlpha(UIColors.TEXT_ERROR, 30));
+            // Tooltip
+            setTooltip(List.of("Close (ESC)"), mouseX, mouseY);
+        }
         
         int closeColor = closeHovered ? UIColors.TEXT_ERROR : UIColors.TEXT_MUTED;
         UIRenderer.drawCenteredText(graphics, "×", closeX + 5, closeY, UIColors.withAlpha(closeColor, alpha));
@@ -273,6 +296,12 @@ public class SystemConsoleScreen extends Screen {
             int levelX = closeX - UIRenderer.getTextWidth(levelText) - 20;
             UIRenderer.drawText(graphics, levelText, levelX, titleY, UIColors.withAlpha(UIColors.PRIMARY, alpha));
         }
+        
+        // Keybind hint
+        String hint = "[1-4] Switch Tabs  |  [ESC] Close";
+        int hintWidth = UIRenderer.getTextWidth(hint);
+        UIRenderer.drawText(graphics, hint, guiLeft + WINDOW_WIDTH - hintWidth - 30, 
+                           guiTop + WINDOW_HEIGHT - 12, UIColors.withAlpha(UIColors.TEXT_MUTED, (int)(alpha * 0.6f)));
     }
     
     private void renderParticles(GuiGraphics graphics) {
@@ -287,7 +316,7 @@ public class SystemConsoleScreen extends Screen {
         }
         
         // Generate new particles occasionally
-        if (random.nextFloat() < 0.05f) {
+        if (random.nextFloat() < 0.03f) {
             generateParticles(1);
         }
     }
@@ -297,11 +326,11 @@ public class SystemConsoleScreen extends Screen {
             particles.add(new GlowParticle(
                 random.nextFloat() * WINDOW_WIDTH,
                 WINDOW_HEIGHT + random.nextFloat() * 20,
-                random.nextFloat() * 0.5f - 0.25f,
-                -0.5f - random.nextFloat() * 1.5f,
-                2 + random.nextFloat() * 4,
+                random.nextFloat() * 0.3f - 0.15f,
+                -0.3f - random.nextFloat() * 1.0f,
+                2 + random.nextFloat() * 3,
                 UIColors.PRIMARY,
-                60 + random.nextInt(120)
+                80 + random.nextInt(100)
             ));
         }
     }
@@ -314,15 +343,6 @@ public class SystemConsoleScreen extends Screen {
             int closeY = guiTop + (HEADER_HEIGHT - 10) / 2;
             if (UIRenderer.isMouseOver((int) mouseX, (int) mouseY, closeX - 2, closeY - 2, 14, 14)) {
                 onClose();
-                return true;
-            }
-            
-            // Check header for dragging
-            if (mouseX >= guiLeft && mouseX <= guiLeft + WINDOW_WIDTH - 30 &&
-                mouseY >= guiTop && mouseY <= guiTop + HEADER_HEIGHT) {
-                isDragging = true;
-                dragOffsetX = (int) (mouseX - guiLeft);
-                dragOffsetY = (int) (mouseY - guiTop);
                 return true;
             }
             
@@ -343,37 +363,7 @@ public class SystemConsoleScreen extends Screen {
     }
     
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (isDragging && button == 0) {
-            guiLeft = (int) (mouseX - dragOffsetX);
-            guiTop = (int) (mouseY - dragOffsetY);
-            
-            // Keep window on screen
-            guiLeft = Math.max(0, Math.min(width - WINDOW_WIDTH, guiLeft));
-            guiTop = Math.max(0, Math.min(height - WINDOW_HEIGHT, guiTop));
-            
-            // Update component positions
-            updateComponentPositions();
-            
-            return true;
-        }
-        
-        // Forward to active tab
-        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
-            if (tabs.get(activeTabIndex).mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-                return true;
-            }
-        }
-        
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-    
-    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            isDragging = false;
-        }
-        
         // Forward to active tab
         if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
             if (tabs.get(activeTabIndex).mouseReleased(mouseX, mouseY, button)) {
@@ -386,7 +376,7 @@ public class SystemConsoleScreen extends Screen {
     
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        // Forward to active tab
+        // Forward to active tab for scrolling
         if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
             if (tabs.get(activeTabIndex).mouseScrolled(mouseX, mouseY, delta)) {
                 return true;
@@ -407,7 +397,7 @@ public class SystemConsoleScreen extends Screen {
         // Tab switching with number keys
         if (keyCode >= 49 && keyCode <= 52) { // 1-4 keys
             int tabIndex = keyCode - 49;
-            if (tabIndex < tabs.size()) {
+            if (tabIndex < tabs.size() && tabIndex != activeTabIndex) {
                 tabBar.selectTab(tabIndex);
             }
             return true;
@@ -435,24 +425,10 @@ public class SystemConsoleScreen extends Screen {
             tabs.get(activeTabIndex).tick();
         }
         
-        // Refresh capability data periodically (every 5 ticks = 0.25 seconds for responsive updates)
+        // Refresh capability data periodically (every 5 ticks for responsive updates)
         if (player != null && animationTick % 5 == 0) {
             capability = player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).orElse(null);
             updateTabData();
-        }
-    }
-    
-    private void updateComponentPositions() {
-        // Update tab bar position
-        tabBar.setPosition(guiLeft + BORDER_SIZE, guiTop + HEADER_HEIGHT);
-        
-        // Update tab positions (without refreshing layout - just move positions)
-        int contentX = guiLeft + BORDER_SIZE;
-        int contentY = guiTop + HEADER_HEIGHT + TAB_BAR_HEIGHT;
-        
-        for (BaseTab tab : tabs) {
-            tab.setPosition(contentX, contentY);
-            // Don't call refreshLayout() here - it's too expensive for dragging
         }
     }
     
@@ -486,12 +462,18 @@ public class SystemConsoleScreen extends Screen {
         }
     }
     
+    private void playClickSound() {
+        Minecraft.getInstance().getSoundManager().play(
+            SimpleSoundInstance.forUI(ModSounds.UI_CLICK.get(), 1.0f, 0.8f)
+        );
+    }
+    
     @Override
     public void onClose() {
         // Play close sound
         if (player != null) {
             Minecraft.getInstance().getSoundManager().play(
-                SimpleSoundInstance.forUI(ModSounds.UI_CLICK.get(), 0.8f, 0.8f)
+                SimpleSoundInstance.forUI(ModSounds.UI_CLICK.get(), 0.8f, 0.7f)
             );
         }
         
@@ -533,7 +515,7 @@ public class SystemConsoleScreen extends Screen {
         void render(GuiGraphics graphics, int offsetX, int offsetY) {
             float progress = (float) life / maxLife;
             float alpha = 1.0f - progress;
-            int particleColor = UIColors.withAlpha(color, (int) (40 * alpha));
+            int particleColor = UIColors.withAlpha(color, (int) (35 * alpha));
             
             int px = offsetX + (int) x;
             int py = offsetY + (int) y;
