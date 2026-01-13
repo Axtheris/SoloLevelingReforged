@@ -34,6 +34,8 @@ import net.xelpha.sololevelingreforged.ui.SystemOverlay;
 import net.xelpha.sololevelingreforged.ModSounds;
 import net.xelpha.sololevelingreforged.ModItems;
 import net.xelpha.sololevelingreforged.ModCreativeTabs;
+import net.xelpha.sololevelingreforged.ModEntities;
+import net.xelpha.sololevelingreforged.entity.ShadowSoldierEntity;
 import org.slf4j.Logger;
 
 // The value here should match an entry in the META-INF/mods.toml file
@@ -64,6 +66,8 @@ public class Sololevelingreforged {
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so sounds get registered
         ModSounds.SOUND_EVENTS.register(modEventBus);
+        // Register the Deferred Register to the mod event bus so entities get registered
+        ModEntities.ENTITIES.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
@@ -92,6 +96,12 @@ public class Sololevelingreforged {
 
         // Register network packets
         ModNetworkRegistry.registerPackets();
+
+        // Register entity attributes
+        event.enqueueWork(() -> {
+            ModEntities.SHADOW_SOLDIER.get().getAttributes()
+                .putAll(ShadowSoldierEntity.createAttributes().build());
+        });
     }
 
 

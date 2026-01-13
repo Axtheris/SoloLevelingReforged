@@ -32,5 +32,45 @@
   "sololevelingreforged.screen.stats_display": "Player Stats",
 
   "sololevelingreforged.subtitle.interface_open": "Interface opens",
-  "sololevelingreforged.subtitle.ui_click": "UI click"
+  "sololevelingreforged.subtitle.ui_click": "UI click",
+
+  "itemGroup.sololevelingreforged.solo_leveling_weapons": "Solo Leveling Weapons",
+
+  "item.sololevelingreforged.kasakas_venom_fang": "Kasaka's Venom Fang",
+  "item.sololevelingreforged.knight_killer": "Knight Killer",
+  "item.sololevelingreforged.barukas_dagger": "Baruka's Dagger",
+  "item.sololevelingreforged.demon_king_daggers": "Demon King Daggers",
+  "item.sololevelingreforged.demon_king_longsword": "Demon King Longsword",
+  "item.sololevelingreforged.moonlight_refractor": "Moonlight Refractor",
+  "item.sololevelingreforged.war_axe": "War Axe",
+  "item.sololevelingreforged.gravity_dagger": "Gravity Dagger",
+  "item.sololevelingreforged.mythic_dagger": "Mythic Dagger",
+  "item.sololevelingreforged.frost_blade": "Frost Blade",
+  "item.sololevelingreforged.kamish_daggers": "Kamish's Wrath",
+  "item.sololevelingreforged.awakened_venom_fang": "Awakened Venom Fang",
+  "item.sololevelingreforged.spirit_bow": "Spirit Bow",
+
+  "item.sololevelingreforged.e_rank_sword": "E-Rank Sword",
+  "item.sololevelingreforged.e_rank_katana": "E-Rank Katana",
+  "item.sololevelingreforged.e_rank_dagger": "E-Rank Dagger",
+
+  "item.sololevelingreforged.d_rank_sword": "D-Rank Sword",
+  "item.sololevelingreforged.d_rank_katana": "D-Rank Katana",
+  "item.sololevelingreforged.d_rank_dagger": "D-Rank Dagger",
+
+  "item.sololevelingreforged.c_rank_sword": "C-Rank Sword",
+  "item.sololevelingreforged.c_rank_katana": "C-Rank Katana",
+  "item.sololevelingreforged.c_rank_dagger": "C-Rank Dagger",
+
+  "item.sololevelingreforged.b_rank_sword": "B-Rank Sword",
+  "item.sololevelingreforged.b_rank_katana": "B-Rank Katana",
+  "item.sololevelingreforged.b_rank_dagger": "B-Rank Dagger",
+
+  "item.sololevelingreforged.a_rank_sword": "A-Rank Sword",
+  "item.sololevelingreforged.a_rank_katana": "A-Rank Katana",
+  "item.sololevelingreforged.a_rank_dagger": "A-Rank Dagger",
+
+  "item.sololevelingreforged.s_rank_sword": "S-Rank Sword",
+  "item.sololevelingreforged.s_rank_katana": "S-Rank Katana",
+  "item.sololevelingreforged.s_rank_dagger": "S-Rank Dagger"
 }

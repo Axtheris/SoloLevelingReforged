@@ -323,6 +323,10 @@ coverage/
 # Custom ignore patterns for this project
 # Add project-specific ignores here
 
+# Exclude all .md files except README.md
+*.md
+!README.md
+
 # Local development overrides
 local.properties
 gradle.properties.local
