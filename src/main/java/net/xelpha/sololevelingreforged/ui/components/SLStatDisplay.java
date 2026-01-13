@@ -32,7 +32,6 @@ public class SLStatDisplay implements UIComponent {
     
     // Animation
     private final UIAnimator.AnimatedValue hoverProgress = new UIAnimator.AnimatedValue(0);
-    private final UIAnimator.AnimatedValue valueAnimation = new UIAnimator.AnimatedValue(0);
     private boolean wasHovered = false;
     private boolean buttonHovered = false;
     private long lastValueChange = 0;

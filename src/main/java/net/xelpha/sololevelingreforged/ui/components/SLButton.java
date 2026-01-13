@@ -69,6 +69,9 @@ public class SLButton implements UIComponent {
     
     private void applyStyle() {
         switch (style) {
+            case DEFAULT -> {
+                // Use default colors
+            }
             case PRIMARY -> {
                 bgColor = UIColors.PRIMARY_DIM;
                 hoverColor = UIColors.PRIMARY;
@@ -172,7 +175,6 @@ public class SLButton implements UIComponent {
         
         // Draw bottom accent line
         if (enabled) {
-            int accentAlpha = (int) (255 * hover);
             int lineColor = UIColors.withAlpha(accentColor, 100 + (int) (155 * hover));
             UIRenderer.horizontalLine(graphics, renderX + 2, renderY + renderH - 2, renderW - 4, lineColor);
         }

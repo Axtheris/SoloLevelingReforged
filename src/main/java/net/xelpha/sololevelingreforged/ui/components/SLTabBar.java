@@ -83,10 +83,8 @@ public class SLTabBar implements UIComponent {
                 currentX += tabWidth;
             }
         } else {
-            int totalTextWidth = 0;
             for (Tab tab : tabs) {
                 tab.textWidth = UIRenderer.getTextWidth(tab.label);
-                totalTextWidth += tab.textWidth + tabPadding * 2;
             }
             
             int currentX = x;
@@ -258,14 +256,13 @@ public class SLTabBar implements UIComponent {
     // Tab data class
     private static class Tab {
         String label;
-        String icon;
         int x;
         int width;
         int textWidth;
         
         Tab(String label, String icon) {
             this.label = label;
-            this.icon = icon;
+            // Icon support can be added later
         }
     }
     

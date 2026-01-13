@@ -343,7 +343,6 @@ public final class UIRenderer {
                                         int color, long tick, float speed) {
         float pulse = (float) (Math.sin(tick * speed) * 0.5 + 0.5);
         int alpha = (int) (50 + pulse * 80);
-        int glowColor = UIColors.withAlpha(color, alpha);
         
         for (int i = 4; i >= 1; i--) {
             int layerAlpha = alpha / (i + 1);

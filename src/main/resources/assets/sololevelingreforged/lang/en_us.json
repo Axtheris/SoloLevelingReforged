@@ -1,8 +1,8 @@
 {
   "itemGroup.sololevelingreforged": "Solo Leveling Reforged",
 
-  "key.categories.sololevelingreforged": "Solo Leveling",
-  "key.sololevelingreforged.open_stats": "Open Stat Allocation",
+  "key.categories.sololevelingreforged": "Solo Leveling System",
+  "key.sololevelingreforged.open_stats": "Open System Console",
   "key.sololevelingreforged.show_stats": "Show Player Stats",
 
   "sololevelingreforged.command.stats.no_ap": "No Ability Points available to allocate!",
@@ -29,7 +29,27 @@
   "sololevelingreforged.title.hunter": "Hunter",
   "sololevelingreforged.title.shadow_monarch": "Shadow Monarch",
 
+  "sololevelingreforged.screen.system_console": "System Console",
   "sololevelingreforged.screen.stats_display": "Player Stats",
+
+  "sololevelingreforged.tab.status": "Status",
+  "sololevelingreforged.tab.skills": "Skills",
+  "sololevelingreforged.tab.quests": "Quests",
+  "sololevelingreforged.tab.inventory": "Inventory",
+  "sololevelingreforged.tab.shop": "Shop",
+  "sololevelingreforged.tab.shadows": "Shadows",
+
+  "sololevelingreforged.skill.locked": "Locked",
+  "sololevelingreforged.skill.level": "Level %d",
+  "sololevelingreforged.skill.mana_cost": "Mana Cost: %d",
+  "sololevelingreforged.skill.cooldown": "Cooldown: %ds",
+
+  "sololevelingreforged.quest.daily": "Daily Quest",
+  "sololevelingreforged.quest.main": "Main Quest",
+  "sololevelingreforged.quest.urgent": "Urgent Quest",
+  "sololevelingreforged.quest.completed": "Completed",
+  "sololevelingreforged.quest.failed": "Failed",
+  "sololevelingreforged.quest.in_progress": "In Progress",
 
   "sololevelingreforged.subtitle.interface_open": "Interface opens",
   "sololevelingreforged.subtitle.ui_click": "UI click",

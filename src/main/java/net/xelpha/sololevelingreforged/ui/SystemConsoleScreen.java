@@ -3,59 +3,68 @@ package net.xelpha.sololevelingreforged.ui;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
-import org.joml.Quaternionf;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 import net.xelpha.sololevelingreforged.ModSounds;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
-import net.xelpha.sololevelingreforged.network.AllocateStatPacket;
-import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
+import net.xelpha.sololevelingreforged.ui.components.SLTabBar;
+import net.xelpha.sololevelingreforged.ui.core.UIAnimator;
+import net.xelpha.sololevelingreforged.ui.core.UIColors;
+import net.xelpha.sololevelingreforged.ui.core.UIRenderer;
+import net.xelpha.sololevelingreforged.ui.tabs.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * System Console - Advanced UI for stat allocation and player management
- * Features: Draggable, Animated, Interactive custom buttons, Audio feedback
+ * System Console - The main UI hub for the Solo Leveling System
+ * 
+ * Features:
+ * - Tab-based navigation (Status, Skills, Quests, Inventory)
+ * - Smooth animations and transitions
+ * - Draggable window
+ * - Modern, immersive design
+ * - Responsive layout
  */
 public class SystemConsoleScreen extends Screen {
-
-    // Colors
-    private static final int BG_COLOR = 0xCC000000; // Semi-transparent black
-    private static final int BORDER_COLOR = 0xFF00BFFF; // Cyan border
-    private static final int TEXT_COLOR = 0xFFFFFFFF; // White text
-    private static final int BUTTON_NORMAL = 0xFF00BFFF; // Cyan buttons
-    private static final int BUTTON_HOVER = 0xFFFFFFFF; // White on hover
-
+    
     // Dimensions
-    private static final int WINDOW_WIDTH = 300;
-    private static final int WINDOW_HEIGHT = 220;
-    private static final int BUTTON_SIZE = 12;
-
-    // Layout constants
-    private static final int HEADER_HEIGHT = 20;
-    private static final int STATS_START_Y = 40;
-    private static final int LEFT_COLUMN_WIDTH = 120;
-    private static final int STAT_SPACING = 18;
-
-    // Dragging variables
+    private static final int WINDOW_WIDTH = 550;
+    private static final int WINDOW_HEIGHT = 400;
+    private static final int HEADER_HEIGHT = 28;
+    private static final int TAB_BAR_HEIGHT = 32;
+    private static final int BORDER_SIZE = 1;
+    
+    // Position
     private int guiLeft, guiTop;
+    
+    // Dragging
     private boolean isDragging = false;
     private int dragOffsetX, dragOffsetY;
-
-    // Animation variables
-    private float scaleProgress = 0.0f;
-    private int animationTicks = 0;
-
+    
+    // Animation
+    private final UIAnimator.AnimatedValue scaleProgress = new UIAnimator.AnimatedValue(0);
+    private final UIAnimator.AnimatedValue fadeProgress = new UIAnimator.AnimatedValue(0);
+    private long openTime;
+    private long animationTick = 0;
+    
+    // Components
+    private SLTabBar tabBar;
+    private final List<BaseTab> tabs = new ArrayList<>();
+    private int activeTabIndex = 0;
+    
     // Player data
     private PlayerCapability capability;
     private LocalPlayer player;
-
-    // Random for sound pitch variation
+    
+    // Effects
     private final RandomSource random = RandomSource.create();
-
+    private final List<GlowParticle> particles = new ArrayList<>();
+    
     public SystemConsoleScreen() {
         super(Component.literal("System Console"));
         this.player = Minecraft.getInstance().player;
@@ -63,289 +72,455 @@ public class SystemConsoleScreen extends Screen {
             this.capability = player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).orElse(null);
         }
     }
-
+    
     @Override
     protected void init() {
         super.init();
-
-        // Center the GUI initially
+        
+        // Center the window
         this.guiLeft = (this.width - WINDOW_WIDTH) / 2;
         this.guiTop = (this.height - WINDOW_HEIGHT) / 2;
-
-        // Reset animation
-        this.scaleProgress = 0.0f;
-        this.animationTicks = 0;
-
+        
+        // Start animation
+        openTime = System.currentTimeMillis();
+        scaleProgress.animateTo(1f, 300, UIAnimator::easeOutBack);
+        fadeProgress.animateTo(1f, 200);
+        
+        // Initialize tab bar
+        int tabBarY = guiTop + HEADER_HEIGHT;
+        tabBar = new SLTabBar(guiLeft + BORDER_SIZE, tabBarY, WINDOW_WIDTH - BORDER_SIZE * 2, TAB_BAR_HEIGHT)
+            .addTab("STATUS")
+            .addTab("SKILLS")
+            .addTab("QUESTS")
+            .addTab("INVENTORY")
+            .withEqualWidth(true)
+            .onTabChanged(this::onTabChanged);
+        
+        // Initialize tabs
+        initializeTabs();
+        
         // Play opening sound
-        if (player != null) {
-            player.playSound(ModSounds.INTERFACE_OPEN.get(),
-                           1.0F, 0.9F + random.nextFloat() * 0.2F);
+        playOpenSound();
+        
+        // Generate initial particles
+        generateParticles(10);
+    }
+    
+    private void initializeTabs() {
+        tabs.clear();
+        
+        int contentX = guiLeft + BORDER_SIZE;
+        int contentY = guiTop + HEADER_HEIGHT + TAB_BAR_HEIGHT;
+        int contentWidth = WINDOW_WIDTH - BORDER_SIZE * 2;
+        int contentHeight = WINDOW_HEIGHT - HEADER_HEIGHT - TAB_BAR_HEIGHT - BORDER_SIZE;
+        
+        // Create tab instances
+        tabs.add(new StatusTab(contentX, contentY, contentWidth, contentHeight));
+        tabs.add(new SkillsTab(contentX, contentY, contentWidth, contentHeight));
+        tabs.add(new QuestsTab(contentX, contentY, contentWidth, contentHeight));
+        tabs.add(new InventoryTab(contentX, contentY, contentWidth, contentHeight));
+        
+        // Initialize active tab with data
+        updateTabData();
+    }
+    
+    private void onTabChanged(int newIndex) {
+        // Deactivate old tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            tabs.get(activeTabIndex).onTabDeactivated();
+        }
+        
+        // Activate new tab
+        activeTabIndex = newIndex;
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            tabs.get(activeTabIndex).onTabActivated();
+            updateTabData();
         }
     }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        // Update animation progress
-        if (scaleProgress < 1.0f) {
-            animationTicks++;
-            scaleProgress = Math.min(1.0f, animationTicks * 0.2f); // 5 ticks to reach full scale
+    
+    private void updateTabData() {
+        if (capability != null && activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            BaseTab tab = tabs.get(activeTabIndex);
+            tab.ensureInitialized();
+            tab.updateData(capability);
         }
-
-        // Calculate scaled dimensions for centering
-        float scaledWidth = WINDOW_WIDTH * scaleProgress;
-        float scaledHeight = WINDOW_HEIGHT * scaleProgress;
+    }
+    
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        animationTick++;
+        
+        // Render darkened background
+        renderBackground(graphics);
+        
+        // Get animation progress
+        float scale = scaleProgress.get();
+        float fade = fadeProgress.get();
+        
+        // Calculate transform center
         int centerX = guiLeft + WINDOW_WIDTH / 2;
         int centerY = guiTop + WINDOW_HEIGHT / 2;
-
-        // Apply animation scaling
-        PoseStack poseStack = guiGraphics.pose();
+        
+        // Apply scaling transform
+        PoseStack poseStack = graphics.pose();
         poseStack.pushPose();
-        poseStack.translate(centerX, centerY, 0);
-        poseStack.scale(scaleProgress, scaleProgress, 1.0f);
-        poseStack.translate(-centerX, -centerY, 0);
-
-        // Render background and border
-        renderBackground(guiGraphics, (int)(centerX - scaledWidth/2), (int)(centerY - scaledHeight/2),
-                        (int)scaledWidth, (int)scaledHeight);
-
-        // Only render content when fully scaled
-        if (scaleProgress >= 1.0f) {
-            renderContent(guiGraphics, mouseX, mouseY, guiLeft, guiTop);
+        
+        if (scale < 1.0f) {
+            poseStack.translate(centerX, centerY, 0);
+            poseStack.scale(scale, scale, 1.0f);
+            poseStack.translate(-centerX, -centerY, 0);
         }
-
+        
+        // Render window
+        if (fade > 0.1f) {
+            // Render particles behind window
+            renderParticles(graphics);
+            
+            // Render main window
+            renderWindow(graphics, mouseX, mouseY, partialTick, fade);
+        }
+        
         poseStack.popPose();
-
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        
+        super.render(graphics, mouseX, mouseY, partialTick);
     }
-
-    private void renderBackground(GuiGraphics guiGraphics, int x, int y, int width, int height) {
-        // Background
-        guiGraphics.fill(x, y, x + width, y + height, BG_COLOR);
-
-        // Border
-        guiGraphics.fill(x, y, x + width, y + 1, BORDER_COLOR); // Top
-        guiGraphics.fill(x, y + height - 1, x + width, y + height, BORDER_COLOR); // Bottom
-        guiGraphics.fill(x, y, x + 1, y + height, BORDER_COLOR); // Left
-        guiGraphics.fill(x + width - 1, y, x + width, y + height, BORDER_COLOR); // Right
-    }
-
-    private void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, int x, int y) {
-        Font font = Minecraft.getInstance().font;
-
-        // Header
-        String headerText = "SYSTEM CONSOLE";
-        int headerWidth = font.width(headerText);
-        int headerX = x + (WINDOW_WIDTH - headerWidth) / 2;
-        guiGraphics.drawString(font, headerText, headerX, y + 8, TEXT_COLOR, false);
-
-        // Left column - Player model
-        renderPlayerModel(guiGraphics, mouseX, mouseY, x + 10, y + STATS_START_Y);
-
-        // Right column - Stats
-        renderStats(guiGraphics, mouseX, mouseY, x + LEFT_COLUMN_WIDTH + 20, y + STATS_START_Y);
-    }
-
-    private void renderPlayerModel(GuiGraphics guiGraphics, int mouseX, int mouseY, int x, int y) {
-        if (player == null) return;
-
-        // Background box
-        guiGraphics.fill(x, y, x + 100, y + 120, 0xFF222222);
-
-        // Center coordinates
-        int playerX = x + 50;
-        int playerY = y + 110; // Slightly higher to fit feet
-        int scale = 40;        // Slightly larger
-
-        // Calculate look direction
-        // The values are negated/adjusted to make the player look AT the cursor
-        float lookX = (float)(playerX - mouseX);
-        float lookY = (float)(playerY - mouseY - 60); // Eye height adjustment
-
-        drawEntity(guiGraphics, playerX, playerY, scale, lookX, lookY, player);
-    }
-
-    private void drawEntity(GuiGraphics guiGraphics, int x, int y, int scale, float mouseX, float mouseY, LocalPlayer entity) {
-        float f = (float)Math.atan((double)(mouseX / 40.0F));
-        float f1 = (float)Math.atan((double)(mouseY / 40.0F));
-
-        PoseStack posestack = guiGraphics.pose();
-        posestack.pushPose();
-        posestack.translate((float)x, (float)y, 1050.0F);
-        posestack.scale(1.0F, 1.0F, -1.0F);
-        RenderSystem.applyModelViewMatrix();
-
-        PoseStack modelPose = new PoseStack();
-        modelPose.translate(0.0F, 0.0F, 1000.0F);
-        modelPose.scale((float)scale, (float)scale, (float)scale);
-
-        // --- THE FIX: Flip the Z axis to turn the model upright ---
-        Quaternionf quaternionf = (new Quaternionf()).rotateZ((float)Math.PI);
-        Quaternionf quaternionf1 = (new Quaternionf()).rotateX(f1 * 20.0F * ((float)Math.PI / 180.0F));
-        quaternionf.mul(quaternionf1);
-        modelPose.mulPose(quaternionf);
-        // ---------------------------------------------------------
-
-        float f2 = entity.yBodyRot;
-        float f3 = entity.getYRot();
-        float f4 = entity.getXRot();
-        float f5 = entity.yHeadRotO;
-        float f6 = entity.yHeadRot;
-
-        entity.yBodyRot = 180.0F + f * 20.0F;
-        entity.setYRot(180.0F + f * 40.0F);
-        entity.setXRot(-f1 * 20.0F);
-        entity.yHeadRot = entity.getYRot();
-        entity.yHeadRotO = entity.getYRot();
-
-        net.minecraft.client.renderer.entity.EntityRenderDispatcher entityrenderdispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        quaternionf1.conjugate();
-        entityrenderdispatcher.overrideCameraOrientation(quaternionf1);
-        entityrenderdispatcher.setRenderShadow(false);
-
-        // Render
-        com.mojang.blaze3d.systems.RenderSystem.runAsFancy(() -> {
-            entityrenderdispatcher.render(entity, 0.0D, 0.0D, 0.0D, 0.0F, 1.0F, modelPose, guiGraphics.bufferSource(), 15728880);
-        });
-
-        guiGraphics.flush();
-        entityrenderdispatcher.setRenderShadow(true);
-
-        // Restore original rotations
-        entity.yBodyRot = f2;
-        entity.setYRot(f3);
-        entity.setXRot(f4);
-        entity.yHeadRotO = f5;
-        entity.yHeadRot = f6;
-
-        posestack.popPose();
-        RenderSystem.applyModelViewMatrix();
-    }
-
-    private void renderStats(GuiGraphics guiGraphics, int mouseX, int mouseY, int x, int y) {
-        if (capability == null) return;
-
-        Font font = Minecraft.getInstance().font;
-
-        String[] statNames = {"STRENGTH", "AGILITY", "SENSE", "VITALITY", "INTELLIGENCE"};
-        int[] statValues = {
-            capability.getStrength(),
-            capability.getAgility(),
-            capability.getSense(),
-            capability.getVitality(),
-            capability.getIntelligence()
-        };
-
-        String[] statKeys = {"strength", "agility", "sense", "vitality", "intelligence"};
-
-        for (int i = 0; i < statNames.length; i++) {
-            int statY = y + i * STAT_SPACING;
-
-            // Stat name and value
-            String statText = statNames[i] + ": " + statValues[i];
-            guiGraphics.drawString(font, statText, x, statY + 2, TEXT_COLOR, false);
-
-            // Plus button
-            int buttonX = x + 140;
-            int buttonY = statY;
-            boolean isHovered = isMouseOverButton(mouseX, mouseY, buttonX, buttonY);
-            int buttonColor = isHovered ? BUTTON_HOVER : BUTTON_NORMAL;
-
-            // Button background
-            guiGraphics.fill(buttonX, buttonY, buttonX + BUTTON_SIZE, buttonY + BUTTON_SIZE, buttonColor);
-
-            // Plus symbol
-            String plusText = "+";
-            int plusWidth = font.width(plusText);
-            guiGraphics.drawString(font, plusText,
-                                  buttonX + (BUTTON_SIZE - plusWidth) / 2,
-                                  buttonY + (BUTTON_SIZE - 8) / 2, 0xFF000000, false);
+    
+    private void renderWindow(GuiGraphics graphics, int mouseX, int mouseY, float partialTick, float fade) {
+        int alpha = (int) (fade * 255);
+        
+        // Outer glow effect
+        int glowAlpha = (int) (30 * fade);
+        int glowColor = UIColors.withAlpha(UIColors.PRIMARY, glowAlpha);
+        for (int i = 5; i >= 1; i--) {
+            graphics.fill(guiLeft - i, guiTop - i, 
+                         guiLeft + WINDOW_WIDTH + i, guiTop + WINDOW_HEIGHT + i, 
+                         UIColors.withAlpha(UIColors.PRIMARY, glowAlpha / (i + 1)));
         }
-
-        // Available AP
-        String apText = "AP: " + capability.getAvailableAP();
-        guiGraphics.drawString(font, apText, x, y + 5 * STAT_SPACING + 10, TEXT_COLOR, false);
+        
+        // Main background
+        UIRenderer.fill(graphics, guiLeft, guiTop, WINDOW_WIDTH, WINDOW_HEIGHT, 
+                       UIColors.withAlpha(UIColors.BG_DARK, (int)(0xF0 * fade)));
+        
+        // Border
+        int borderColor = UIColors.withAlpha(UIColors.PRIMARY_DIM, alpha);
+        UIRenderer.horizontalLine(graphics, guiLeft, guiTop, WINDOW_WIDTH, borderColor);
+        UIRenderer.horizontalLine(graphics, guiLeft, guiTop + WINDOW_HEIGHT - 1, WINDOW_WIDTH, borderColor);
+        UIRenderer.verticalLine(graphics, guiLeft, guiTop, WINDOW_HEIGHT, borderColor);
+        UIRenderer.verticalLine(graphics, guiLeft + WINDOW_WIDTH - 1, guiTop, WINDOW_HEIGHT, borderColor);
+        
+        // Corner decorations
+        int cornerColor = UIColors.withAlpha(UIColors.PRIMARY, alpha);
+        UIRenderer.drawCornerDecorations(graphics, guiLeft, guiTop, WINDOW_WIDTH, WINDOW_HEIGHT, cornerColor, 12);
+        
+        // Render header
+        renderHeader(graphics, mouseX, mouseY, fade);
+        
+        // Render tab bar
+        tabBar.render(graphics, mouseX, mouseY, partialTick);
+        
+        // Render active tab content
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            tabs.get(activeTabIndex).render(graphics, mouseX, mouseY, partialTick);
+        }
+        
+        // Scanline effect
+        int scanlineColor = UIColors.withAlpha(0xFF000000, 8);
+        UIRenderer.drawScanlines(graphics, guiLeft + 1, guiTop + 1, WINDOW_WIDTH - 2, WINDOW_HEIGHT - 2, scanlineColor, 3);
     }
-
-    private boolean isMouseOverButton(int mouseX, int mouseY, int buttonX, int buttonY) {
-        return mouseX >= buttonX && mouseX <= buttonX + BUTTON_SIZE &&
-               mouseY >= buttonY && mouseY <= buttonY + BUTTON_SIZE;
+    
+    private void renderHeader(GuiGraphics graphics, int mouseX, int mouseY, float fade) {
+        int headerY = guiTop;
+        int alpha = (int) (fade * 255);
+        
+        // Header background gradient
+        UIRenderer.fillGradientH(graphics, guiLeft + 1, headerY + 1, WINDOW_WIDTH - 2, HEADER_HEIGHT - 1,
+                                UIColors.withAlpha(UIColors.BG_HEADER, alpha),
+                                UIColors.withAlpha(UIColors.BG_PANEL, alpha));
+        
+        // Header separator line
+        UIRenderer.horizontalLine(graphics, guiLeft, headerY + HEADER_HEIGHT - 1, WINDOW_WIDTH, 
+                                 UIColors.withAlpha(UIColors.PRIMARY_DIM, alpha));
+        
+        // Title with glow effect
+        String title = "SYSTEM CONSOLE";
+        int titleX = guiLeft + 14;
+        int titleY = headerY + (HEADER_HEIGHT - 8) / 2;
+        
+        // Draw title glow
+        int titleWidth = UIRenderer.getTextWidth(title);
+        int glowAlpha = (int) (30 * fade);
+        graphics.fill(titleX - 2, titleY - 2, titleX + titleWidth + 2, titleY + 10, 
+                     UIColors.withAlpha(UIColors.PRIMARY, glowAlpha));
+        
+        // Draw title text
+        UIRenderer.drawText(graphics, title, titleX, titleY, UIColors.withAlpha(UIColors.TEXT_TITLE, alpha));
+        
+        // System status indicator (pulsing)
+        float pulse = UIAnimator.pulse(animationTick, 0.1f);
+        int statusColor = UIColors.lerp(UIColors.PRIMARY_DIM, UIColors.PRIMARY, pulse);
+        UIRenderer.fill(graphics, titleX + titleWidth + 10, titleY + 2, 6, 6, UIColors.withAlpha(statusColor, alpha));
+        
+        // Close button
+        int closeX = guiLeft + WINDOW_WIDTH - 22;
+        int closeY = headerY + (HEADER_HEIGHT - 10) / 2;
+        boolean closeHovered = UIRenderer.isMouseOver(mouseX, mouseY, closeX - 2, closeY - 2, 14, 14);
+        
+        int closeColor = closeHovered ? UIColors.TEXT_ERROR : UIColors.TEXT_MUTED;
+        UIRenderer.drawCenteredText(graphics, "×", closeX + 5, closeY, UIColors.withAlpha(closeColor, alpha));
+        
+        // Level display (right side of header)
+        if (capability != null) {
+            String levelText = "Lv. " + capability.getLevel();
+            int levelX = closeX - UIRenderer.getTextWidth(levelText) - 20;
+            UIRenderer.drawText(graphics, levelText, levelX, titleY, UIColors.withAlpha(UIColors.PRIMARY, alpha));
+        }
     }
-
+    
+    private void renderParticles(GuiGraphics graphics) {
+        // Update and render glow particles
+        particles.removeIf(p -> {
+            p.update();
+            return p.isDead();
+        });
+        
+        for (GlowParticle particle : particles) {
+            particle.render(graphics, guiLeft, guiTop);
+        }
+        
+        // Generate new particles occasionally
+        if (random.nextFloat() < 0.05f) {
+            generateParticles(1);
+        }
+    }
+    
+    private void generateParticles(int count) {
+        for (int i = 0; i < count; i++) {
+            particles.add(new GlowParticle(
+                random.nextFloat() * WINDOW_WIDTH,
+                WINDOW_HEIGHT + random.nextFloat() * 20,
+                random.nextFloat() * 0.5f - 0.25f,
+                -0.5f - random.nextFloat() * 1.5f,
+                2 + random.nextFloat() * 4,
+                UIColors.PRIMARY,
+                60 + random.nextInt(120)
+            ));
+        }
+    }
+    
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) { // Left click
-            // Check if clicking on header for dragging
-            if (mouseX >= guiLeft && mouseX <= guiLeft + WINDOW_WIDTH &&
-                mouseY >= guiTop && mouseY <= guiTop + HEADER_HEIGHT) {
-                isDragging = true;
-                dragOffsetX = (int)(mouseX - guiLeft);
-                dragOffsetY = (int)(mouseY - guiTop);
+        if (button == 0) {
+            // Check close button
+            int closeX = guiLeft + WINDOW_WIDTH - 22;
+            int closeY = guiTop + (HEADER_HEIGHT - 10) / 2;
+            if (UIRenderer.isMouseOver((int) mouseX, (int) mouseY, closeX - 2, closeY - 2, 14, 14)) {
+                onClose();
                 return true;
             }
-
-            // Check stat buttons
-            if (capability != null && capability.getAvailableAP() > 0) {
-                int statsX = guiLeft + LEFT_COLUMN_WIDTH + 20;
-                int statsY = guiTop + STATS_START_Y;
-
-                String[] statKeys = {"strength", "agility", "sense", "vitality", "intelligence"};
-
-                for (int i = 0; i < statKeys.length; i++) {
-                    int buttonX = statsX + 140;
-                    int buttonY = statsY + i * STAT_SPACING;
-
-                    if (isMouseOverButton((int)mouseX, (int)mouseY, buttonX, buttonY)) {
-                        // Allocate stat
-                        ModNetworkRegistry.CHANNEL.sendToServer(new AllocateStatPacket(statKeys[i]));
-
-                        // Play click sound
-                        if (player != null) {
-                            player.playSound(ModSounds.UI_CLICK.get(),
-                                           1.0F, 0.8F + random.nextFloat() * 0.4F);
-                        }
-
-                        return true;
-                    }
+            
+            // Check header for dragging
+            if (mouseX >= guiLeft && mouseX <= guiLeft + WINDOW_WIDTH - 30 &&
+                mouseY >= guiTop && mouseY <= guiTop + HEADER_HEIGHT) {
+                isDragging = true;
+                dragOffsetX = (int) (mouseX - guiLeft);
+                dragOffsetY = (int) (mouseY - guiTop);
+                return true;
+            }
+            
+            // Forward to tab bar
+            if (tabBar.mouseClicked(mouseX, mouseY, button)) {
+                return true;
+            }
+            
+            // Forward to active tab
+            if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+                if (tabs.get(activeTabIndex).mouseClicked(mouseX, mouseY, button)) {
+                    return true;
                 }
             }
         }
+        
         return super.mouseClicked(mouseX, mouseY, button);
     }
-
+    
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (isDragging && button == 0) {
-            guiLeft = (int)(mouseX - dragOffsetX);
-            guiTop = (int)(mouseY - dragOffsetY);
-
+            guiLeft = (int) (mouseX - dragOffsetX);
+            guiTop = (int) (mouseY - dragOffsetY);
+            
             // Keep window on screen
             guiLeft = Math.max(0, Math.min(width - WINDOW_WIDTH, guiLeft));
             guiTop = Math.max(0, Math.min(height - WINDOW_HEIGHT, guiTop));
-
+            
+            // Update component positions
+            updateComponentPositions();
+            
             return true;
         }
+        
+        // Forward to active tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            if (tabs.get(activeTabIndex).mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
+                return true;
+            }
+        }
+        
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
-
+    
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (button == 0) {
             isDragging = false;
         }
+        
+        // Forward to active tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            if (tabs.get(activeTabIndex).mouseReleased(mouseX, mouseY, button)) {
+                return true;
+            }
+        }
+        
         return super.mouseReleased(mouseX, mouseY, button);
     }
-
+    
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        // Forward to active tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            if (tabs.get(activeTabIndex).mouseScrolled(mouseX, mouseY, delta)) {
+                return true;
+            }
+        }
+        
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+    
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // ESC to close
+        if (keyCode == 256) {
+            onClose();
+            return true;
+        }
+        
+        // Tab switching with number keys
+        if (keyCode >= 49 && keyCode <= 52) { // 1-4 keys
+            int tabIndex = keyCode - 49;
+            if (tabIndex < tabs.size()) {
+                tabBar.selectTab(tabIndex);
+            }
+            return true;
+        }
+        
+        // Forward to active tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            if (tabs.get(activeTabIndex).keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
+        }
+        
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+    
+    @Override
+    public void tick() {
+        super.tick();
+        
+        // Update tab bar
+        tabBar.tick();
+        
+        // Update active tab
+        if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
+            tabs.get(activeTabIndex).tick();
+        }
+        
+        // Refresh capability data periodically
+        if (player != null && animationTick % 20 == 0) {
+            capability = player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).orElse(null);
+            updateTabData();
+        }
+    }
+    
+    private void updateComponentPositions() {
+        // Update tab bar position
+        tabBar.setPosition(guiLeft + BORDER_SIZE, guiTop + HEADER_HEIGHT);
+        
+        // Update tab positions
+        int contentX = guiLeft + BORDER_SIZE;
+        int contentY = guiTop + HEADER_HEIGHT + TAB_BAR_HEIGHT;
+        
+        for (BaseTab tab : tabs) {
+            tab.setPosition(contentX, contentY);
+            tab.refreshLayout();
+        }
+    }
+    
+    private void playOpenSound() {
+        if (player != null) {
+            Minecraft.getInstance().getSoundManager().play(
+                SimpleSoundInstance.forUI(ModSounds.INTERFACE_OPEN.get(), 
+                    0.9f + random.nextFloat() * 0.2f, 1.0f)
+            );
+        }
+    }
+    
+    @Override
+    public void onClose() {
+        // Play close sound
+        if (player != null) {
+            Minecraft.getInstance().getSoundManager().play(
+                SimpleSoundInstance.forUI(ModSounds.UI_CLICK.get(), 0.8f, 0.8f)
+            );
+        }
+        
+        super.onClose();
+    }
+    
     @Override
     public boolean isPauseScreen() {
         return false;
     }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC key
-            onClose();
-            return true;
+    
+    // Particle class for background effects
+    private static class GlowParticle {
+        float x, y, vx, vy, size;
+        int color;
+        int life, maxLife;
+        
+        GlowParticle(float x, float y, float vx, float vy, float size, int color, int maxLife) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.size = size;
+            this.color = color;
+            this.maxLife = maxLife;
+            this.life = 0;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        
+        void update() {
+            x += vx;
+            y += vy;
+            life++;
+        }
+        
+        boolean isDead() {
+            return life >= maxLife || y < -size;
+        }
+        
+        void render(GuiGraphics graphics, int offsetX, int offsetY) {
+            float progress = (float) life / maxLife;
+            float alpha = 1.0f - progress;
+            int particleColor = UIColors.withAlpha(color, (int) (40 * alpha));
+            
+            int px = offsetX + (int) x;
+            int py = offsetY + (int) y;
+            int halfSize = (int) (size / 2);
+            
+            graphics.fill(px - halfSize, py - halfSize, 
+                         px + halfSize, py + halfSize, particleColor);
+        }
     }
 }

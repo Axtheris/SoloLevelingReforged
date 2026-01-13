@@ -8,7 +8,6 @@ import net.minecraft.client.player.LocalPlayer;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
 import net.xelpha.sololevelingreforged.network.AllocateStatPacket;
 import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
-import net.xelpha.sololevelingreforged.ui.components.SLButton;
 import net.xelpha.sololevelingreforged.ui.components.SLPanel;
 import net.xelpha.sololevelingreforged.ui.components.SLProgressBar;
 import net.xelpha.sololevelingreforged.ui.components.SLStatDisplay;

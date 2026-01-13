@@ -3,8 +3,6 @@ package net.xelpha.sololevelingreforged.ui.tabs;
 import net.minecraft.client.gui.GuiGraphics;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
 import net.xelpha.sololevelingreforged.ui.components.SLPanel;
-import net.xelpha.sololevelingreforged.ui.components.SLProgressBar;
-import net.xelpha.sololevelingreforged.ui.core.UIAnimator;
 import net.xelpha.sololevelingreforged.ui.core.UIColors;
 import net.xelpha.sololevelingreforged.ui.core.UIRenderer;
 
