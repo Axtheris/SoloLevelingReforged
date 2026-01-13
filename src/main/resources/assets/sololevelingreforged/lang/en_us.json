@@ -1,0 +1,36 @@
+{
+  "itemGroup.sololevelingreforged": "Solo Leveling Reforged",
+
+  "key.categories.sololevelingreforged": "Solo Leveling",
+  "key.sololevelingreforged.open_stats": "Open Stat Allocation",
+  "key.sololevelingreforged.show_stats": "Show Player Stats",
+
+  "sololevelingreforged.command.stats.no_ap": "No Ability Points available to allocate!",
+  "sololevelingreforged.command.stats.opened": "Opening Stat Allocation Screen...",
+  "sololevelingreforged.command.info.header": "=== SYSTEM STATUS ===",
+  "sololevelingreforged.command.givexp.success": "Gave %d experience to %s",
+
+  "sololevelingreforged.stat.strength": "Strength",
+  "sololevelingreforged.stat.agility": "Agility",
+  "sololevelingreforged.stat.sense": "Sense",
+  "sololevelingreforged.stat.vitality": "Vitality",
+  "sololevelingreforged.stat.intelligence": "Intelligence",
+
+  "sololevelingreforged.stat.description.strength": "• Physical Damage\n• Carry Weight",
+  "sololevelingreforged.stat.description.agility": "• Movement Speed\n• Attack Speed\n• Dodge Chance",
+  "sololevelingreforged.stat.description.sense": "• Accuracy\n• Enemy Detection",
+  "sololevelingreforged.stat.description.vitality": "• Max Health\n• Defense\n• Stamina",
+  "sololevelingreforged.stat.description.intelligence": "• Max Mana\n• Magic Damage",
+
+  "sololevelingreforged.system.level_up": "LEVEL UP! You are now level %d. +5 Ability Points available.",
+  "sololevelingreforged.system.stat_increased": "%s increased to %d!",
+  "sololevelingreforged.system.experience_gained": "Experience gained: %d",
+
+  "sololevelingreforged.title.hunter": "Hunter",
+  "sololevelingreforged.title.shadow_monarch": "Shadow Monarch",
+
+  "sololevelingreforged.screen.stats_display": "Player Stats",
+
+  "sololevelingreforged.subtitle.interface_open": "Interface opens",
+  "sololevelingreforged.subtitle.ui_click": "UI click"
+}

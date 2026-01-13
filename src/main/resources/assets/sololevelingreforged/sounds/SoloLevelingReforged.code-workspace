@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"name": "SoloLevelingReforged",
+			"path": "../../../../../.."
+		}
+	],
+	"settings": {
+		"powershell.cwd": "SoloLevelingReforged"
+	}
+}

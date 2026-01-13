@@ -1,0 +1,430 @@
+# Minecraft Forge Mod Development .gitignore
+# Comprehensive .gitignore for Minecraft Forge mod projects
+
+# Build outputs and artifacts
+build/
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# IDE Files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# Eclipse
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders
+
+# IntelliJ IDEA
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# VS Code
+.vscode/
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.stackdump
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Minecraft Specific
+# Run directory (client/server testing)
+run/
+run-client/
+run-server/
+
+# Minecraft saves and worlds
+saves/
+backups/
+
+# Logs and crash reports
+logs/
+crash-reports/
+debug.log
+latest.log
+
+# Screenshots (if taken during testing)
+screenshots/
+
+# Resource packs and mods (development copies)
+resourcepacks/
+mods/
+
+# Config files (may contain sensitive data or be auto-generated)
+config/
+defaultconfigs/
+
+# User cache and temporary files
+usercache.json
+usernamecache.json
+options.txt
+
+# Server files (if running a test server)
+server.properties
+banned-ips.json
+banned-players.json
+ops.json
+whitelist.json
+usercache.json
+
+# Forge/Minecraft cache
+/libraries/
+/versions/
+
+# Mixin debugging
+mixin.out/
+
+# Java Specific
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+*.hprof
+
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Maven (if using)
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+.cache/
+.tmp/
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.swp
+*.swo
+*~
+
+# Patch files
+*.patch
+*.diff
+
+# Configuration files that may contain secrets
+*.properties.local
+*.properties.dev
+*.properties.prod
+
+# Development certificates and keys
+*.p12
+*.jks
+*.key
+*.crt
+*.pem
+
+# API keys and secrets
+.env
+.env.local
+.env.development
+.env.production
+secrets.json
+credentials.json
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Node.js (if using for tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Python (if using for tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Ruby (if using for tooling)
+.bundle/
+.bundler/
+vendor/bundle/
+.log
+
+# Go (if using for tooling)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Rust (if using for tooling)
+target/
+Cargo.lock
+
+# C/C++ (if using native libraries)
+*.o
+*.obj
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+*.so
+*.dylib
+*.exe
+*.out
+*.app
+
+# Unity (if using Unity-related tools)
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+
+# Game Development Assets
+# Uncomment if you want to ignore large asset files
+# *.fbx
+# *.blend
+# *.max
+# *.ma
+# *.mb
+# *.unity
+# *.prefab
+# *.asset
+# *.mat
+# *.controller
+# *.anim
+
+# Documentation and reports
+javadoc/
+apidoc/
+coverage/
+*.html
+*.pdf
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Email and documents
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.odt
+*.ods
+*.odp
+
+# Images and media (uncomment if you want to ignore generated images)
+# *.png
+# *.jpg
+# *.jpeg
+# *.gif
+# *.bmp
+# *.tiff
+# *.svg
+# *.ico
+# *.mp3
+# *.wav
+# *.mp4
+# *.avi
+# *.mov
+
+# Custom ignore patterns for this project
+# Add project-specific ignores here
+
+# Local development overrides
+local.properties
+gradle.properties.local
+
+# Test outputs
+test-results/
+build/test-results/
+build/reports/
+
+# JMH benchmarks
+build/benchmarks/
+
+# ShadowJar outputs
+build/libs/shadow/
+
+# CurseForge/Modrinth publishing
+curseforge/
+modrinth/
+
+# CI/CD
+.github/workflows/*.log
+.github/actions/*/dist/
+actions-runner/
+
+# Docker (if using)
+.dockerignore
+Dockerfile.local
+docker-compose.override.yml
+
+# Kubernetes/Helm (if using)
+charts/*/charts/
+charts/*/Chart.lock
+
+# Terraform (if using for infrastructure)
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Ansible (if using for deployment)
+*.retry
+.vault_pass
+
+# Jenkins/Pipeline
+jenkins/
+build.xml
+
+# TeamCity
+.teamcity/
+
+# Azure DevOps
+azure-pipelines.yml.backup
+
+# GitLab CI
+.gitlab-ci.yml.backup
+
+# Travis CI
+.travis.yml.backup
+
+# AppVeyor
+appveyor.yml.backup
+
+# CircleCI
+.circleci/config.yml.backup
+
+# CodeClimate
+.codeclimate.yml
+
+# Codacy
+.codacy.yml
+
+# SonarQube
+sonar-project.properties
+
+# Coveralls
+.coveralls.yml
+
+# Codecov
+codecov.yml
+
+# Dependency scanning
+dependency-check-report.html
+owasp-dependency-check/
+
+# Security scanning
+trivy-report.json
+grype-report.json
+
+# Performance testing
+jmeter.log
+gatling-results/
+
+# Load testing
+k6-results/
+
+# Monitoring and logging
+prometheus/
+grafana/
+loki/
+
+# Backup and recovery
+backup/
+restore/
+
+# End of .gitignore

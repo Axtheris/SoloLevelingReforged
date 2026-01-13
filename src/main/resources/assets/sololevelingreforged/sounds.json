@@ -1,0 +1,22 @@
+{
+  "interface_open": {
+    "category": "master",
+    "subtitle": "sololevelingreforged.subtitle.interface_open",
+    "sounds": [
+      {
+        "name": "sololevelingreforged:interface_open",
+        "stream": false
+      }
+    ]
+  },
+  "click": {
+    "category": "master",
+    "subtitle": "sololevelingreforged.subtitle.ui_click",
+    "sounds": [
+      {
+        "name": "sololevelingreforged:click",
+        "stream": false
+      }
+    ]
+  }
+}
