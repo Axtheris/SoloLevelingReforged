@@ -8,7 +8,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
-import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
 
 import java.util.function.Supplier;
 
@@ -51,6 +50,13 @@ public class SyncCapabilityPacket {
                 if (player != null) {
                     player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).ifPresent(cap -> {
                         cap.deserializeNBT(capabilityData);
+                        
+                        // Immediately refresh the UI if the System Console is open
+                        net.xelpha.sololevelingreforged.ui.SystemConsoleScreen screen = 
+                            net.xelpha.sololevelingreforged.ui.SystemConsoleScreen.getOpenScreen();
+                        if (screen != null) {
+                            screen.forceRefresh();
+                        }
                     });
                 }
             }

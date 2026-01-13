@@ -15,10 +15,10 @@ import java.util.List;
  */
 public class SkillsTab extends BaseTab {
     
-    // Layout
+    // Layout - adjusted for proper fitting
     private static final int SKILL_SLOT_SIZE = 48;
-    private static final int SKILL_SPACING = 8;
-    private static final int SKILLS_PER_ROW = 5;
+    private static final int SKILL_SPACING = 6;
+    private static final int SKILLS_PER_ROW = 3; // Reduced to fit in half-width panels
     
     // Panels
     private SLPanel activeSkillsPanel;
@@ -42,27 +42,30 @@ public class SkillsTab extends BaseTab {
     
     @Override
     protected void initComponents() {
-        int padding = 12;
+        int padding = 8;
         int panelWidth = (width - padding * 3) / 2;
+        int topPanelHeight = (int)(height * 0.55); // 55% for skill panels
         
         // Active skills panel (left)
-        activeSkillsPanel = new SLPanel(x + padding, y + padding, panelWidth, height / 2 - padding)
+        activeSkillsPanel = new SLPanel(x + padding, y + padding, panelWidth, topPanelHeight)
             .withTitle("ACTIVE SKILLS")
             .withCornerDecorations(true)
             .withScrolling(true);
         addComponent(activeSkillsPanel);
         
         // Passive skills panel (right)
-        passiveSkillsPanel = new SLPanel(x + padding + panelWidth + padding, y + padding, 
-                                        panelWidth, height / 2 - padding)
+        passiveSkillsPanel = new SLPanel(x + padding * 2 + panelWidth, y + padding, 
+                                        panelWidth, topPanelHeight)
             .withTitle("PASSIVE SKILLS")
             .withCornerDecorations(true)
             .withScrolling(true);
         addComponent(passiveSkillsPanel);
         
-        // Skill details panel (bottom)
-        skillDetailsPanel = new SLPanel(x + padding, y + height / 2 + padding / 2, 
-                                       width - padding * 2, height / 2 - padding * 2)
+        // Skill details panel (bottom, full width)
+        int detailsPanelY = y + padding + topPanelHeight + padding;
+        int detailsPanelHeight = height - topPanelHeight - padding * 3;
+        skillDetailsPanel = new SLPanel(x + padding, detailsPanelY, 
+                                       width - padding * 2, detailsPanelHeight)
             .withTitle("SKILL DETAILS")
             .withCornerDecorations(true);
         addComponent(skillDetailsPanel);
@@ -105,16 +108,30 @@ public class SkillsTab extends BaseTab {
     protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         hoveredSkill = null;
         
-        // Render active skill slots
+        // Render active skill slots with clipping
+        graphics.enableScissor(
+            activeSkillsPanel.getX() + 1, 
+            activeSkillsPanel.getContentStartY(),
+            activeSkillsPanel.getX() + activeSkillsPanel.getWidth() - 1,
+            activeSkillsPanel.getY() + activeSkillsPanel.getHeight() - 1
+        );
         renderSkillGrid(graphics, activeSkills, activeSkillsPanel, mouseX, mouseY, true);
+        graphics.disableScissor();
         
-        // Render passive skill slots
+        // Render passive skill slots with clipping
+        graphics.enableScissor(
+            passiveSkillsPanel.getX() + 1, 
+            passiveSkillsPanel.getContentStartY(),
+            passiveSkillsPanel.getX() + passiveSkillsPanel.getWidth() - 1,
+            passiveSkillsPanel.getY() + passiveSkillsPanel.getHeight() - 1
+        );
         renderSkillGrid(graphics, passiveSkills, passiveSkillsPanel, mouseX, mouseY, false);
+        graphics.disableScissor();
         
-        // Render skill details
+        // Render skill details (no clipping needed - fits panel)
         renderSkillDetails(graphics);
         
-        // Render tooltip for hovered skill
+        // Render tooltip for hovered skill (outside scissor so it's not clipped)
         if (hoveredSkill != null) {
             renderSkillTooltip(graphics, mouseX, mouseY, hoveredSkill);
         }

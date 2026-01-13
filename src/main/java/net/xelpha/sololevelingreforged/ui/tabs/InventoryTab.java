@@ -15,10 +15,10 @@ import java.util.List;
  */
 public class InventoryTab extends BaseTab {
     
-    // Layout
-    private static final int SLOT_SIZE = 40;
-    private static final int SLOT_SPACING = 4;
-    private static final int INVENTORY_COLS = 8;
+    // Layout - adjusted for proper fitting
+    private static final int SLOT_SIZE = 36;
+    private static final int SLOT_SPACING = 3;
+    private static final int INVENTORY_COLS = 7;
     private static final int INVENTORY_ROWS = 5;
     
     // Panels
@@ -43,30 +43,31 @@ public class InventoryTab extends BaseTab {
     
     @Override
     protected void initComponents() {
-        int padding = 12;
+        int padding = 8;
         
-        // Equipment panel (left)
-        int equipWidth = 120;
+        // Equipment panel (left) - narrower
+        int equipWidth = 110;
         equipmentPanel = new SLPanel(x + padding, y + padding, equipWidth, height - padding * 2)
             .withTitle("EQUIPMENT")
             .withCornerDecorations(true);
         addComponent(equipmentPanel);
         
-        // Main inventory panel (center)
+        // Item details panel (right) - calculate first to determine inventory width
+        int detailWidth = 130;
+        int detailX = x + width - padding - detailWidth;
+        itemDetailsPanel = new SLPanel(detailX, y + padding, detailWidth, height - padding * 2)
+            .withTitle("ITEM INFO")
+            .withCornerDecorations(true);
+        addComponent(itemDetailsPanel);
+        
+        // Main inventory panel (center) - fills remaining space
         int invX = x + padding + equipWidth + padding;
-        int invWidth = width - equipWidth - padding * 3 - 150;
+        int invWidth = detailX - invX - padding;
         inventoryPanel = new SLPanel(invX, y + padding, invWidth, height - padding * 2)
             .withTitle("SYSTEM INVENTORY")
             .withCornerDecorations(true)
             .withScrolling(true);
         addComponent(inventoryPanel);
-        
-        // Item details panel (right)
-        int detailX = invX + invWidth + padding;
-        itemDetailsPanel = new SLPanel(detailX, y + padding, 150 - padding, height - padding * 2)
-            .withTitle("ITEM INFO")
-            .withCornerDecorations(true);
-        addComponent(itemDetailsPanel);
         
         // Initialize placeholder items
         initPlaceholderInventory();
@@ -105,19 +106,33 @@ public class InventoryTab extends BaseTab {
     protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         hoveredSlot = null;
         
-        // Render equipment slots
+        // Render equipment slots with clipping
+        graphics.enableScissor(
+            equipmentPanel.getX() + 1,
+            equipmentPanel.getContentStartY(),
+            equipmentPanel.getX() + equipmentPanel.getWidth() - 1,
+            equipmentPanel.getY() + equipmentPanel.getHeight() - 1
+        );
         renderEquipmentSlots(graphics, mouseX, mouseY);
+        graphics.disableScissor();
         
-        // Render inventory grid
+        // Render inventory grid with clipping
+        graphics.enableScissor(
+            inventoryPanel.getX() + 1,
+            inventoryPanel.getContentStartY(),
+            inventoryPanel.getX() + inventoryPanel.getWidth() - 1,
+            inventoryPanel.getY() + inventoryPanel.getHeight() - 1
+        );
         renderInventoryGrid(graphics, mouseX, mouseY);
+        graphics.disableScissor();
         
-        // Render item details
+        // Render item details (no clipping needed)
         renderItemDetails(graphics);
         
         // Render currency display
         renderCurrency(graphics);
         
-        // Render tooltip
+        // Render tooltip (outside scissor so it's not clipped)
         if (hoveredSlot != null) {
             renderItemTooltip(graphics, mouseX, mouseY, hoveredSlot);
         }
@@ -125,40 +140,40 @@ public class InventoryTab extends BaseTab {
     
     private void renderEquipmentSlots(GuiGraphics graphics, int mouseX, int mouseY) {
         String[] slotLabels = {"WPN", "HEAD", "BODY", "LEGS", "FEET", "ACC"};
-        int startX = equipmentPanel.getX() + 12;
-        int startY = equipmentPanel.getContentStartY() + 8;
-        int slotHeight = 50;
+        int startX = equipmentPanel.getX() + 8;
+        int startY = equipmentPanel.getContentStartY() + 4;
+        int slotHeight = 44; // Compact height
+        int slotWidth = equipmentPanel.getWidth() - 16;
         
         for (int i = 0; i < equipmentSlots.length; i++) {
             int slotY = startY + i * slotHeight;
-            int slotWidth = equipmentPanel.getWidth() - 24;
             
-            boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, startX, slotY, slotWidth, SLOT_SIZE);
+            boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, startX, slotY, slotWidth, slotHeight - 4);
             
             // Background
             int bgColor = hovered ? UIColors.BG_HOVER : UIColors.BG_HEADER;
-            UIRenderer.fill(graphics, startX, slotY, slotWidth, SLOT_SIZE, bgColor);
+            UIRenderer.fill(graphics, startX, slotY, slotWidth, slotHeight - 4, bgColor);
             
             // Border
             int borderColor = hovered ? UIColors.PRIMARY : UIColors.BORDER;
             UIRenderer.horizontalLine(graphics, startX, slotY, slotWidth, borderColor);
-            UIRenderer.horizontalLine(graphics, startX, slotY + SLOT_SIZE - 1, slotWidth, borderColor);
-            UIRenderer.verticalLine(graphics, startX, slotY, SLOT_SIZE, borderColor);
-            UIRenderer.verticalLine(graphics, startX + slotWidth - 1, slotY, SLOT_SIZE, borderColor);
+            UIRenderer.horizontalLine(graphics, startX, slotY + slotHeight - 5, slotWidth, borderColor);
+            UIRenderer.verticalLine(graphics, startX, slotY, slotHeight - 4, borderColor);
+            UIRenderer.verticalLine(graphics, startX + slotWidth - 1, slotY, slotHeight - 4, borderColor);
             
             // Slot label
-            UIRenderer.drawText(graphics, slotLabels[i], startX + 4, slotY + 4, UIColors.TEXT_MUTED);
+            UIRenderer.drawText(graphics, slotLabels[i], startX + 4, slotY + 3, UIColors.TEXT_MUTED);
             
             // Item or empty indicator
             ItemSlot item = equipmentSlots[i];
             if (item != null) {
                 int rarityColor = UIColors.getRarityColor(item.rank);
-                UIRenderer.drawTruncatedText(graphics, item.name, startX + 4, slotY + 16, slotWidth - 8, rarityColor);
-                UIRenderer.drawText(graphics, "[" + item.rank + "]", startX + 4, slotY + 28, rarityColor);
+                UIRenderer.drawTruncatedText(graphics, item.name, startX + 4, slotY + 14, slotWidth - 8, rarityColor);
+                UIRenderer.drawText(graphics, "[" + item.rank + "]", startX + 4, slotY + 26, rarityColor);
                 
                 if (hovered) hoveredSlot = item;
             } else {
-                UIRenderer.drawCenteredText(graphics, "Empty", startX + slotWidth / 2, slotY + 16, UIColors.TEXT_DISABLED);
+                UIRenderer.drawCenteredText(graphics, "Empty", startX + slotWidth / 2, slotY + 14, UIColors.TEXT_DISABLED);
             }
         }
     }
@@ -184,11 +199,11 @@ public class InventoryTab extends BaseTab {
             }
         }
         
-        // Show inventory capacity
+        // Show inventory capacity (Solo Leveling has "unlimited" system inventory)
         int usedSlots = (int) inventorySlots.stream().filter(s -> s != null).count();
-        String capacityText = usedSlots + "/" + inventorySlots.size() + " slots used";
+        String capacityText = usedSlots + "/∞ slots used";
         UIRenderer.drawText(graphics, capacityText, startX, 
-                           startY + INVENTORY_ROWS * (SLOT_SIZE + SLOT_SPACING) + 4, UIColors.TEXT_SECONDARY);
+                           startY + INVENTORY_ROWS * (SLOT_SIZE + SLOT_SPACING) + 2, UIColors.TEXT_SECONDARY);
     }
     
     private void renderInventorySlot(GuiGraphics graphics, int x, int y, ItemSlot item, 

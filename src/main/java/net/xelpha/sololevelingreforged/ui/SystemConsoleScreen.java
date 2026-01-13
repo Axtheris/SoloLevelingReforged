@@ -1,6 +1,5 @@
 package net.xelpha.sololevelingreforged.ui;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -436,8 +435,8 @@ public class SystemConsoleScreen extends Screen {
             tabs.get(activeTabIndex).tick();
         }
         
-        // Refresh capability data periodically
-        if (player != null && animationTick % 20 == 0) {
+        // Refresh capability data periodically (every 5 ticks = 0.25 seconds for responsive updates)
+        if (player != null && animationTick % 5 == 0) {
             capability = player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).orElse(null);
             updateTabData();
         }
@@ -447,14 +446,35 @@ public class SystemConsoleScreen extends Screen {
         // Update tab bar position
         tabBar.setPosition(guiLeft + BORDER_SIZE, guiTop + HEADER_HEIGHT);
         
-        // Update tab positions
+        // Update tab positions (without refreshing layout - just move positions)
         int contentX = guiLeft + BORDER_SIZE;
         int contentY = guiTop + HEADER_HEIGHT + TAB_BAR_HEIGHT;
         
         for (BaseTab tab : tabs) {
             tab.setPosition(contentX, contentY);
-            tab.refreshLayout();
+            // Don't call refreshLayout() here - it's too expensive for dragging
         }
+    }
+    
+    /**
+     * Force refresh capability data and update UI immediately.
+     * Called after network sync packets are received.
+     */
+    public void forceRefresh() {
+        if (player != null) {
+            capability = player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).orElse(null);
+            updateTabData();
+        }
+    }
+    
+    /**
+     * Get the current screen instance if open
+     */
+    public static SystemConsoleScreen getOpenScreen() {
+        if (Minecraft.getInstance().screen instanceof SystemConsoleScreen screen) {
+            return screen;
+        }
+        return null;
     }
     
     private void playOpenSound() {

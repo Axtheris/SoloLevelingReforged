@@ -120,16 +120,30 @@ public class QuestsTab extends BaseTab {
     
     @Override
     protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Render urgent quest (if any)
+        // Render urgent quest (if any) - no clipping needed, fits panel
         renderUrgentQuest(graphics);
         
-        // Render daily quests
+        // Render daily quests with clipping
+        graphics.enableScissor(
+            dailyQuestsPanel.getX() + 1,
+            dailyQuestsPanel.getContentStartY(),
+            dailyQuestsPanel.getX() + dailyQuestsPanel.getWidth() - 1,
+            dailyQuestsPanel.getY() + dailyQuestsPanel.getHeight() - 1
+        );
         renderQuestList(graphics, dailyQuests, dailyQuestsPanel, mouseX, mouseY);
+        graphics.disableScissor();
         
-        // Render main quests
+        // Render main quests with clipping
+        graphics.enableScissor(
+            mainQuestsPanel.getX() + 1,
+            mainQuestsPanel.getContentStartY(),
+            mainQuestsPanel.getX() + mainQuestsPanel.getWidth() - 1,
+            mainQuestsPanel.getY() + mainQuestsPanel.getHeight() - 1
+        );
         renderQuestList(graphics, mainQuests, mainQuestsPanel, mouseX, mouseY);
+        graphics.disableScissor();
         
-        // Render time remaining for daily quests
+        // Render time remaining for daily quests (outside scissor)
         renderDailyTimer(graphics);
     }
     
@@ -165,52 +179,54 @@ public class QuestsTab extends BaseTab {
     
     private void renderQuestList(GuiGraphics graphics, List<QuestEntry> quests, SLPanel panel, 
                                  int mouseX, int mouseY) {
-        int questX = panel.getX() + 12;
-        int questY = panel.getContentStartY() + 8;
-        int questHeight = 60;
+        int questX = panel.getX() + 8;
+        int questY = panel.getContentStartY() + 4;
+        int questHeight = 52; // Reduced height to fit more quests
+        int questWidth = panel.getWidth() - 16;
         
         for (int i = 0; i < quests.size(); i++) {
             QuestEntry quest = quests.get(i);
             int currentY = questY + i * questHeight;
             
             boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, 
-                questX - 4, currentY - 2, panel.getWidth() - 24, questHeight - 4);
+                questX, currentY, questWidth, questHeight - 2);
             
-            renderQuestEntry(graphics, quest, questX, currentY, panel.getWidth() - 24, hovered);
+            renderQuestEntry(graphics, quest, questX, currentY, questWidth, hovered);
         }
     }
     
     private void renderQuestEntry(GuiGraphics graphics, QuestEntry quest, int x, int y, int width, boolean hovered) {
         // Background on hover
         if (hovered) {
-            UIRenderer.fill(graphics, x - 4, y - 2, width, 58, UIColors.BG_HOVER);
+            UIRenderer.fill(graphics, x, y, width, 50, UIColors.BG_HOVER);
         }
         
-        // Quest type indicator
+        // Quest type indicator (left bar)
         int typeColor = getQuestTypeColor(quest.type);
-        UIRenderer.fill(graphics, x - 4, y, 3, 50, typeColor);
+        UIRenderer.fill(graphics, x, y + 2, 3, 46, typeColor);
         
         // Quest name
         boolean completed = quest.current >= quest.max;
         int nameColor = completed ? UIColors.QUEST_COMPLETE : UIColors.TEXT;
         String nameText = quest.name + (completed ? " ✓" : "");
-        UIRenderer.drawText(graphics, nameText, x + 4, y, nameColor);
+        UIRenderer.drawText(graphics, nameText, x + 8, y + 2, nameColor);
         
-        // Quest description
-        UIRenderer.drawTruncatedText(graphics, quest.description, x + 4, y + 12, width - 8, UIColors.TEXT_SECONDARY);
+        // Quest description (truncated to fit)
+        UIRenderer.drawTruncatedText(graphics, quest.description, x + 8, y + 14, width - 12, UIColors.TEXT_SECONDARY);
         
         // Progress bar
         float progress = quest.max > 0 ? (float) quest.current / quest.max : 0;
         int barColor = completed ? UIColors.QUEST_COMPLETE : typeColor;
-        UIRenderer.drawProgressBar(graphics, x + 4, y + 28, width - 8, 8, 
+        UIRenderer.drawProgressBar(graphics, x + 8, y + 28, width - 16, 6, 
                                   progress, barColor, UIColors.BG_HEADER);
         
-        // Progress text
+        // Progress text and reward on same line
         String progressText = quest.current + "/" + quest.max;
-        UIRenderer.drawText(graphics, progressText, x + 4, y + 40, UIColors.TEXT_SECONDARY);
+        UIRenderer.drawText(graphics, progressText, x + 8, y + 38, UIColors.TEXT_SECONDARY);
         
-        // Reward
-        UIRenderer.drawRightAlignedText(graphics, "Reward: " + quest.reward, x + width - 4, y + 40, UIColors.TERTIARY);
+        // Reward (truncated if too long)
+        String rewardText = "Reward: " + quest.reward;
+        UIRenderer.drawRightAlignedText(graphics, rewardText, x + width - 4, y + 38, UIColors.TERTIARY);
     }
     
     private void renderDailyTimer(GuiGraphics graphics) {
