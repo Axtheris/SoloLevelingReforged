@@ -113,6 +113,7 @@ public class StatusTab extends BaseTab {
                 keys[i]
             );
             display.setOnAllocate(this::onStatAllocate);
+            display.setTooltipConsumer(this::showTooltip);
             statDisplays.put(keys[i], display);
             addComponent(display);
         }

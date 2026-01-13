@@ -8,6 +8,8 @@ import net.xelpha.sololevelingreforged.ui.core.UIAnimator;
 import net.xelpha.sololevelingreforged.ui.core.UIColors;
 import net.xelpha.sololevelingreforged.ui.core.UIRenderer;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -36,6 +38,9 @@ public class SLStatDisplay implements UIComponent {
     private boolean buttonHovered = false;
     private long lastValueChange = 0;
     
+    // Tooltip callback
+    private TooltipConsumer tooltipConsumer;
+    
     // Layout
     private static final int BUTTON_SIZE = 18;
     private static final int PADDING = 8;
@@ -48,6 +53,15 @@ public class SLStatDisplay implements UIComponent {
         this.statName = statName;
         this.statKey = statKey;
         this.statColor = UIColors.getStatColor(statKey);
+    }
+    
+    @FunctionalInterface
+    public interface TooltipConsumer {
+        void showTooltip(List<String> lines, int x, int y);
+    }
+    
+    public void setTooltipConsumer(TooltipConsumer consumer) {
+        this.tooltipConsumer = consumer;
     }
     
     @Override
@@ -106,6 +120,70 @@ public class SLStatDisplay implements UIComponent {
         int lineAlpha = (int) (40 + 40 * hover);
         UIRenderer.horizontalLine(graphics, x + PADDING, y + height - 1, 
                                  width - PADDING * 2, UIColors.withAlpha(UIColors.BORDER, lineAlpha));
+        
+        // Show tooltip on hover (not over button)
+        if (hovered && !buttonHovered && tooltipConsumer != null) {
+            tooltipConsumer.showTooltip(getTooltipLines(), mouseX + 8, mouseY + 8);
+        } else if (buttonHovered && tooltipConsumer != null) {
+            List<String> buttonTooltip = new ArrayList<>();
+            buttonTooltip.add("§a+ Allocate Point");
+            buttonTooltip.add("§7Click to add 1 point to " + statName);
+            tooltipConsumer.showTooltip(buttonTooltip, mouseX + 8, mouseY + 8);
+        }
+    }
+    
+    private List<String> getTooltipLines() {
+        List<String> lines = new ArrayList<>();
+        
+        // Stat name with color code
+        String colorCode = getStatColorCode();
+        lines.add(colorCode + statName);
+        lines.add("");
+        
+        // Stat description
+        switch (statKey.toLowerCase()) {
+            case "strength":
+                lines.add("§7• Increases physical damage");
+                lines.add("§7• Enhances carry weight");
+                lines.add("§7• Powers up melee attacks");
+                break;
+            case "agility":
+                lines.add("§7• Increases movement speed");
+                lines.add("§7• Boosts attack speed");
+                lines.add("§7• Improves dodge chance");
+                break;
+            case "sense":
+                lines.add("§7• Enhances accuracy");
+                lines.add("§7• Improves enemy detection");
+                lines.add("§7• Reveals hidden threats");
+                break;
+            case "vitality":
+                lines.add("§7• Increases max health (+2 HP)");
+                lines.add("§7• Boosts defense");
+                lines.add("§7• Improves stamina regen");
+                break;
+            case "intelligence":
+                lines.add("§7• Increases max mana (+10 MP)");
+                lines.add("§7• Boosts magic damage");
+                lines.add("§7• Enhances skill effects");
+                break;
+        }
+        
+        lines.add("");
+        lines.add("§8Current: §f" + value);
+        
+        return lines;
+    }
+    
+    private String getStatColorCode() {
+        return switch (statKey.toLowerCase()) {
+            case "strength" -> "§c";      // Red
+            case "agility" -> "§a";       // Green  
+            case "sense" -> "§e";         // Yellow
+            case "vitality" -> "§d";      // Pink
+            case "intelligence" -> "§9";  // Blue
+            default -> "§f";              // White
+        };
     }
     
     private void drawAllocationButton(GuiGraphics graphics, int bx, int by) {

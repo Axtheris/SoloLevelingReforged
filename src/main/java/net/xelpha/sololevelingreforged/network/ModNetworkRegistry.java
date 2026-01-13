@@ -47,5 +47,14 @@ public class ModNetworkRegistry {
             StoreItemPacket::new,
             StoreItemPacket::handle
         );
+        
+        // Register withdraw item packet
+        CHANNEL.registerMessage(
+            packetId++,
+            WithdrawItemPacket.class,
+            WithdrawItemPacket::encode,
+            WithdrawItemPacket::new,
+            WithdrawItemPacket::handle
+        );
     }
 }

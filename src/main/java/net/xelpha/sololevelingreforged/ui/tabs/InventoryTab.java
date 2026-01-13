@@ -1,8 +1,14 @@
 package net.xelpha.sololevelingreforged.ui.tabs;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
+import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
+import net.xelpha.sololevelingreforged.network.WithdrawItemPacket;
 import net.xelpha.sololevelingreforged.ui.components.SLPanel;
+import net.xelpha.sololevelingreforged.ui.core.UIAnimator;
 import net.xelpha.sololevelingreforged.ui.core.UIColors;
 import net.xelpha.sololevelingreforged.ui.core.UIRenderer;
 
@@ -10,27 +16,34 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Inventory tab showing system inventory and equipment slots
- * This is a framework for the inventory system - actual implementation in Priority 3
+ * System Inventory Tab - Solo Leveling dimensional storage
+ * 
+ * Items are stored via keybind (V) while playing.
+ * This tab is for viewing and withdrawing items only.
+ * 
+ * Design inspired by the System's interface in the manhwa.
  */
 public class InventoryTab extends BaseTab {
     
-    // Layout - adjusted for proper fitting
-    private static final int SLOT_SIZE = 36;
-    private static final int SLOT_SPACING = 3;
-    private static final int INVENTORY_COLS = 7;
-    private static final int INVENTORY_ROWS = 5;
+    // Layout
+    private static final int SLOT_SIZE = 38;
+    private static final int SLOT_SPACING = 2;
+    private static final int GRID_COLS = 7;
+    private static final int GRID_ROWS = 6;
     
     // Panels
-    private SLPanel equipmentPanel;
     private SLPanel inventoryPanel;
-    private SLPanel itemDetailsPanel;
+    private SLPanel detailsPanel;
+    private SLPanel infoPanel;
     
-    // Placeholder data
-    private final List<ItemSlot> inventorySlots = new ArrayList<>();
-    private final ItemSlot[] equipmentSlots = new ItemSlot[6]; // Weapon, Head, Chest, Legs, Feet, Accessory
-    private ItemSlot selectedSlot = null;
-    private ItemSlot hoveredSlot = null;
+    // State
+    private int selectedIndex = -1;
+    private int hoveredIndex = -1;
+    private int scrollOffset = 0;
+    private long animationTick = 0;
+    
+    // Cached inventory for display
+    private List<ItemStack> displayedItems = new ArrayList<>();
     
     public InventoryTab(int x, int y, int width, int height) {
         super(x, y, width, height);
@@ -45,76 +58,55 @@ public class InventoryTab extends BaseTab {
     protected void initComponents() {
         int padding = 8;
         
-        // Equipment panel (left) - narrower
-        int equipWidth = 110;
-        equipmentPanel = new SLPanel(x + padding, y + padding, equipWidth, height - padding * 2)
-            .withTitle("EQUIPMENT")
+        // Info panel at top (storage info and gold)
+        int infoPanelHeight = 40;
+        infoPanel = new SLPanel(x + padding, y + padding, width - padding * 2, infoPanelHeight)
+            .withTitle("SYSTEM STORAGE")
             .withCornerDecorations(true);
-        addComponent(equipmentPanel);
+        addComponent(infoPanel);
         
-        // Item details panel (right) - calculate first to determine inventory width
-        int detailWidth = 130;
-        int detailX = x + width - padding - detailWidth;
-        itemDetailsPanel = new SLPanel(detailX, y + padding, detailWidth, height - padding * 2)
-            .withTitle("ITEM INFO")
-            .withCornerDecorations(true);
-        addComponent(itemDetailsPanel);
+        // Main inventory grid (left/center)
+        int gridPanelWidth = (int)(width * 0.65);
+        int gridPanelY = y + padding + infoPanelHeight + padding;
+        int gridPanelHeight = height - padding * 3 - infoPanelHeight;
         
-        // Main inventory panel (center) - fills remaining space
-        int invX = x + padding + equipWidth + padding;
-        int invWidth = detailX - invX - padding;
-        inventoryPanel = new SLPanel(invX, y + padding, invWidth, height - padding * 2)
-            .withTitle("SYSTEM INVENTORY")
+        inventoryPanel = new SLPanel(x + padding, gridPanelY, gridPanelWidth, gridPanelHeight)
+            .withTitle("STORED ITEMS")
             .withCornerDecorations(true)
             .withScrolling(true);
         addComponent(inventoryPanel);
         
-        // Initialize placeholder items
-        initPlaceholderInventory();
-    }
-    
-    private void initPlaceholderInventory() {
-        // Initialize empty inventory slots
-        for (int i = 0; i < INVENTORY_COLS * INVENTORY_ROWS; i++) {
-            inventorySlots.add(null);
-        }
+        // Details panel (right side)
+        int detailsPanelX = x + padding + gridPanelWidth + padding;
+        int detailsPanelWidth = width - gridPanelWidth - padding * 3;
         
-        // Add some placeholder items
-        inventorySlots.set(0, new ItemSlot("Knight Killer", "S", "weapon", 
-            "A legendary dagger that killed a hundred knights."));
-        inventorySlots.set(1, new ItemSlot("Kasaka's Venom Fang", "A", "weapon", 
-            "A dagger dripping with deadly poison."));
-        inventorySlots.set(2, new ItemSlot("Health Potion", "D", "consumable", 
-            "Restores 50 HP when used."));
-        inventorySlots.set(3, new ItemSlot("Mana Crystal", "C", "consumable", 
-            "Restores 30 MP when used."));
-        
-        // Initialize equipment slots (all empty by default)
-        
-        // Equip one item
-        equipmentSlots[0] = new ItemSlot("Knight Killer", "S", "weapon", 
-            "A legendary dagger that killed a hundred knights.");
+        detailsPanel = new SLPanel(detailsPanelX, gridPanelY, detailsPanelWidth, gridPanelHeight)
+            .withTitle("ITEM DETAILS")
+            .withCornerDecorations(true);
+        addComponent(detailsPanel);
     }
     
     @Override
     public void updateData(PlayerCapability capability) {
         this.capability = capability;
-        // In the future, this will sync with actual inventory data
+        if (capability != null) {
+            // Update displayed items from capability
+            displayedItems = new ArrayList<>(capability.getSystemInventory());
+        }
+    }
+    
+    @Override
+    public void tick() {
+        super.tick();
+        animationTick++;
     }
     
     @Override
     protected void renderContent(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        hoveredSlot = null;
+        hoveredIndex = -1;
         
-        // Render equipment slots with clipping
-        graphics.enableScissor(
-            equipmentPanel.getX() + 1,
-            equipmentPanel.getContentStartY(),
-            equipmentPanel.getX() + equipmentPanel.getWidth() - 1,
-            equipmentPanel.getY() + equipmentPanel.getHeight() - 1
-        );
-        renderEquipmentSlots(graphics, mouseX, mouseY);
-        graphics.disableScissor();
+        // Render storage info
+        renderStorageInfo(graphics);
         
         // Render inventory grid with clipping
         graphics.enableScissor(
@@ -126,225 +118,302 @@ public class InventoryTab extends BaseTab {
         renderInventoryGrid(graphics, mouseX, mouseY);
         graphics.disableScissor();
         
-        // Render item details (no clipping needed)
-        renderItemDetails(graphics);
+        // Render item details
+        renderItemDetails(graphics, mouseX, mouseY);
         
-        // Render currency display
-        renderCurrency(graphics);
-        
-        // Render tooltip (outside scissor so it's not clipped)
-        if (hoveredSlot != null) {
-            renderItemTooltip(graphics, mouseX, mouseY, hoveredSlot);
-        }
+        // Render hint text at bottom
+        renderHints(graphics);
     }
     
-    private void renderEquipmentSlots(GuiGraphics graphics, int mouseX, int mouseY) {
-        String[] slotLabels = {"WPN", "HEAD", "BODY", "LEGS", "FEET", "ACC"};
-        int startX = equipmentPanel.getX() + 8;
-        int startY = equipmentPanel.getContentStartY() + 4;
-        int slotHeight = 44; // Compact height
-        int slotWidth = equipmentPanel.getWidth() - 16;
+    private void renderStorageInfo(GuiGraphics graphics) {
+        int infoX = infoPanel.getX() + 12;
+        int infoY = infoPanel.getContentStartY() + 2;
         
-        for (int i = 0; i < equipmentSlots.length; i++) {
-            int slotY = startY + i * slotHeight;
+        if (capability != null) {
+            // Storage count
+            int itemCount = capability.getInventorySize();
+            String storageText = "Items: " + itemCount + " / ∞";
+            UIRenderer.drawText(graphics, storageText, infoX, infoY, UIColors.TEXT);
             
-            boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, startX, slotY, slotWidth, slotHeight - 4);
+            // Gold display
+            int gold = capability.getGold();
+            String goldText = "Gold: " + formatNumber(gold);
+            int goldX = infoPanel.getX() + infoPanel.getWidth() - UIRenderer.getTextWidth(goldText) - 12;
+            UIRenderer.drawText(graphics, goldText, goldX, infoY, UIColors.TERTIARY);
             
-            // Background
-            int bgColor = hovered ? UIColors.BG_HOVER : UIColors.BG_HEADER;
-            UIRenderer.fill(graphics, startX, slotY, slotWidth, slotHeight - 4, bgColor);
-            
-            // Border
-            int borderColor = hovered ? UIColors.PRIMARY : UIColors.BORDER;
-            UIRenderer.horizontalLine(graphics, startX, slotY, slotWidth, borderColor);
-            UIRenderer.horizontalLine(graphics, startX, slotY + slotHeight - 5, slotWidth, borderColor);
-            UIRenderer.verticalLine(graphics, startX, slotY, slotHeight - 4, borderColor);
-            UIRenderer.verticalLine(graphics, startX + slotWidth - 1, slotY, slotHeight - 4, borderColor);
-            
-            // Slot label
-            UIRenderer.drawText(graphics, slotLabels[i], startX + 4, slotY + 3, UIColors.TEXT_MUTED);
-            
-            // Item or empty indicator
-            ItemSlot item = equipmentSlots[i];
-            if (item != null) {
-                int rarityColor = UIColors.getRarityColor(item.rank);
-                UIRenderer.drawTruncatedText(graphics, item.name, startX + 4, slotY + 14, slotWidth - 8, rarityColor);
-                UIRenderer.drawText(graphics, "[" + item.rank + "]", startX + 4, slotY + 26, rarityColor);
-                
-                if (hovered) hoveredSlot = item;
-            } else {
-                UIRenderer.drawCenteredText(graphics, "Empty", startX + slotWidth / 2, slotY + 14, UIColors.TEXT_DISABLED);
-            }
+            // Store keybind hint
+            String hintText = "Press [V] while holding an item to store";
+            int hintX = infoX + 150;
+            UIRenderer.drawText(graphics, hintText, hintX, infoY, UIColors.TEXT_MUTED);
         }
     }
     
     private void renderInventoryGrid(GuiGraphics graphics, int mouseX, int mouseY) {
-        int startX = inventoryPanel.getX() + 12;
-        int startY = inventoryPanel.getContentStartY() + 8;
+        int startX = inventoryPanel.getX() + 8;
+        int startY = inventoryPanel.getContentStartY() + 4;
         
-        for (int row = 0; row < INVENTORY_ROWS; row++) {
-            for (int col = 0; col < INVENTORY_COLS; col++) {
-                int index = row * INVENTORY_COLS + col;
-                int slotX = startX + col * (SLOT_SIZE + SLOT_SPACING);
-                int slotY = startY + row * (SLOT_SIZE + SLOT_SPACING);
-                
-                boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, slotX, slotY, SLOT_SIZE, SLOT_SIZE);
-                ItemSlot item = index < inventorySlots.size() ? inventorySlots.get(index) : null;
-                
-                renderInventorySlot(graphics, slotX, slotY, item, hovered, selectedSlot == item);
-                
-                if (hovered && item != null) {
-                    hoveredSlot = item;
-                }
+        // Calculate visible range based on scroll
+        int visibleSlots = GRID_COLS * GRID_ROWS;
+        int startIndex = scrollOffset * GRID_COLS;
+        int endIndex = Math.min(startIndex + visibleSlots, displayedItems.size());
+        
+        for (int i = startIndex; i < endIndex; i++) {
+            int localIndex = i - startIndex;
+            int col = localIndex % GRID_COLS;
+            int row = localIndex / GRID_COLS;
+            
+            int slotX = startX + col * (SLOT_SIZE + SLOT_SPACING);
+            int slotY = startY + row * (SLOT_SIZE + SLOT_SPACING);
+            
+            ItemStack stack = displayedItems.get(i);
+            boolean hovered = UIRenderer.isMouseOver(mouseX, mouseY, slotX, slotY, SLOT_SIZE, SLOT_SIZE);
+            boolean selected = selectedIndex == i;
+            
+            if (hovered) {
+                hoveredIndex = i;
             }
+            
+            renderInventorySlot(graphics, slotX, slotY, stack, hovered, selected, i);
         }
         
-        // Show inventory capacity (Solo Leveling has "unlimited" system inventory)
-        int usedSlots = (int) inventorySlots.stream().filter(s -> s != null).count();
-        String capacityText = usedSlots + "/∞ slots used";
-        UIRenderer.drawText(graphics, capacityText, startX, 
-                           startY + INVENTORY_ROWS * (SLOT_SIZE + SLOT_SPACING) + 2, UIColors.TEXT_SECONDARY);
+        // Draw empty slots to fill grid
+        for (int i = endIndex - startIndex; i < visibleSlots; i++) {
+            int col = i % GRID_COLS;
+            int row = i / GRID_COLS;
+            
+            int slotX = startX + col * (SLOT_SIZE + SLOT_SPACING);
+            int slotY = startY + row * (SLOT_SIZE + SLOT_SPACING);
+            
+            renderEmptySlot(graphics, slotX, slotY);
+        }
+        
+        // Scroll indicator if needed
+        if (displayedItems.size() > visibleSlots) {
+            int totalRows = (displayedItems.size() + GRID_COLS - 1) / GRID_COLS;
+            int visibleRows = GRID_ROWS;
+            float scrollProgress = (float) scrollOffset / Math.max(1, totalRows - visibleRows);
+            
+            int scrollBarX = inventoryPanel.getX() + inventoryPanel.getWidth() - 8;
+            int scrollBarY = inventoryPanel.getContentStartY() + 4;
+            int scrollBarHeight = GRID_ROWS * (SLOT_SIZE + SLOT_SPACING) - 8;
+            
+            // Track
+            UIRenderer.fill(graphics, scrollBarX, scrollBarY, 4, scrollBarHeight, UIColors.BG_HEADER);
+            
+            // Thumb
+            int thumbHeight = Math.max(20, scrollBarHeight / totalRows * visibleRows);
+            int thumbY = scrollBarY + (int)((scrollBarHeight - thumbHeight) * scrollProgress);
+            UIRenderer.fill(graphics, scrollBarX, thumbY, 4, thumbHeight, UIColors.PRIMARY_DIM);
+        }
     }
     
-    private void renderInventorySlot(GuiGraphics graphics, int x, int y, ItemSlot item, 
-                                     boolean hovered, boolean selected) {
+    private void renderInventorySlot(GuiGraphics graphics, int x, int y, ItemStack stack, 
+                                     boolean hovered, boolean selected, int index) {
         // Background
-        int bgColor = UIColors.BG_HEADER;
-        if (selected) bgColor = UIColors.BG_ACTIVE;
-        else if (hovered) bgColor = UIColors.BG_HOVER;
-        
+        int bgColor = selected ? UIColors.BG_ACTIVE : (hovered ? UIColors.BG_HOVER : UIColors.BG_HEADER);
         UIRenderer.fill(graphics, x, y, SLOT_SIZE, SLOT_SIZE, bgColor);
         
-        // Border
+        // Border with rarity color
         int borderColor = UIColors.BORDER;
-        if (item != null) {
-            borderColor = UIColors.getRarityColor(item.rank);
+        if (!stack.isEmpty()) {
+            borderColor = getItemRarityColor(stack);
         }
-        if (selected) borderColor = UIColors.PRIMARY;
-        else if (hovered && item != null) borderColor = UIColors.brighten(borderColor, 1.5f);
+        if (selected) {
+            borderColor = UIColors.PRIMARY;
+        } else if (hovered) {
+            borderColor = UIColors.brighten(borderColor, 1.3f);
+        }
         
         UIRenderer.horizontalLine(graphics, x, y, SLOT_SIZE, borderColor);
         UIRenderer.horizontalLine(graphics, x, y + SLOT_SIZE - 1, SLOT_SIZE, borderColor);
         UIRenderer.verticalLine(graphics, x, y, SLOT_SIZE, borderColor);
         UIRenderer.verticalLine(graphics, x + SLOT_SIZE - 1, y, SLOT_SIZE, borderColor);
         
-        if (item != null) {
-            // Item icon placeholder (first letter)
-            int rarityColor = UIColors.getRarityColor(item.rank);
-            String initial = item.name.substring(0, 1);
-            UIRenderer.drawCenteredText(graphics, initial, x + SLOT_SIZE / 2, y + SLOT_SIZE / 2 - 8, rarityColor);
+        // Render item
+        if (!stack.isEmpty()) {
+            // Item icon
+            int itemX = x + (SLOT_SIZE - 16) / 2;
+            int itemY = y + (SLOT_SIZE - 16) / 2 - 2;
+            graphics.renderItem(stack, itemX, itemY);
             
-            // Rank badge
-            UIRenderer.drawText(graphics, item.rank, x + 2, y + 2, rarityColor);
-        }
-    }
-    
-    private void renderItemDetails(GuiGraphics graphics) {
-        ItemSlot item = selectedSlot != null ? selectedSlot : hoveredSlot;
-        
-        if (item == null) {
-            int centerX = itemDetailsPanel.getX() + itemDetailsPanel.getWidth() / 2;
-            int centerY = itemDetailsPanel.getContentStartY() + 40;
-            
-            UIRenderer.drawCenteredText(graphics, "Select an", centerX, centerY, UIColors.TEXT_MUTED);
-            UIRenderer.drawCenteredText(graphics, "item to view", centerX, centerY + 12, UIColors.TEXT_MUTED);
-            UIRenderer.drawCenteredText(graphics, "details", centerX, centerY + 24, UIColors.TEXT_MUTED);
-            return;
-        }
-        
-        int detailX = itemDetailsPanel.getX() + 8;
-        int detailY = itemDetailsPanel.getContentStartY() + 8;
-        int maxWidth = itemDetailsPanel.getWidth() - 16;
-        
-        // Item name with rarity color
-        int rarityColor = UIColors.getRarityColor(item.rank);
-        UIRenderer.drawTruncatedText(graphics, item.name, detailX, detailY, maxWidth, rarityColor);
-        
-        // Rank badge
-        String rankText = "[" + item.rank + " RANK]";
-        UIRenderer.drawText(graphics, rankText, detailX, detailY + 14, rarityColor);
-        
-        // Type
-        String typeText = item.type.toUpperCase();
-        UIRenderer.drawText(graphics, typeText, detailX, detailY + 28, UIColors.TEXT_SECONDARY);
-        
-        // Description (word wrapped manually)
-        int descY = detailY + 46;
-        String[] words = item.description.split(" ");
-        StringBuilder line = new StringBuilder();
-        
-        for (String word : words) {
-            String test = line + (line.length() > 0 ? " " : "") + word;
-            if (UIRenderer.getTextWidth(test) > maxWidth) {
-                UIRenderer.drawText(graphics, line.toString(), detailX, descY, UIColors.TEXT);
-                descY += 10;
-                line = new StringBuilder(word);
-            } else {
-                if (line.length() > 0) line.append(" ");
-                line.append(word);
+            // Stack count
+            if (stack.getCount() > 1) {
+                String count = String.valueOf(stack.getCount());
+                int countX = x + SLOT_SIZE - UIRenderer.getTextWidth(count) - 2;
+                UIRenderer.drawText(graphics, count, countX, y + SLOT_SIZE - 10, UIColors.TEXT);
             }
         }
-        if (line.length() > 0) {
-            UIRenderer.drawText(graphics, line.toString(), detailX, descY, UIColors.TEXT);
+        
+        // Selection glow
+        if (selected) {
+            float pulse = UIAnimator.pulse(animationTick, 0.1f);
+            int glowAlpha = (int)(20 + 15 * pulse);
+            graphics.fill(x - 1, y - 1, x + SLOT_SIZE + 1, y + SLOT_SIZE + 1, 
+                         UIColors.withAlpha(UIColors.PRIMARY, glowAlpha));
         }
     }
     
-    private void renderCurrency(GuiGraphics graphics) {
-        // Gold display at bottom of inventory panel
-        int goldX = inventoryPanel.getX() + inventoryPanel.getWidth() - 12;
-        int goldY = inventoryPanel.getY() + inventoryPanel.getHeight() - 20;
+    private void renderEmptySlot(GuiGraphics graphics, int x, int y) {
+        UIRenderer.fill(graphics, x, y, SLOT_SIZE, SLOT_SIZE, UIColors.withAlpha(UIColors.BG_HEADER, 100));
         
-        String goldText = "Gold: 0"; // Placeholder - will be replaced with actual currency
-        UIRenderer.drawRightAlignedText(graphics, goldText, goldX, goldY, UIColors.TERTIARY);
+        int borderColor = UIColors.withAlpha(UIColors.BORDER, 80);
+        UIRenderer.horizontalLine(graphics, x, y, SLOT_SIZE, borderColor);
+        UIRenderer.horizontalLine(graphics, x, y + SLOT_SIZE - 1, SLOT_SIZE, borderColor);
+        UIRenderer.verticalLine(graphics, x, y, SLOT_SIZE, borderColor);
+        UIRenderer.verticalLine(graphics, x + SLOT_SIZE - 1, y, SLOT_SIZE, borderColor);
     }
     
-    private void renderItemTooltip(GuiGraphics graphics, int mouseX, int mouseY, ItemSlot item) {
-        List<String> lines = new ArrayList<>();
-        lines.add("§l" + item.name);
-        lines.add("§7[" + item.rank + " Rank] " + item.type);
-        lines.add("");
-        lines.add(item.description);
+    private void renderItemDetails(GuiGraphics graphics, int mouseX, int mouseY) {
+        int detailX = detailsPanel.getX() + 10;
+        int detailY = detailsPanel.getContentStartY() + 8;
+        int maxWidth = detailsPanel.getWidth() - 20;
         
-        net.xelpha.sololevelingreforged.ui.components.SLTooltip.render(graphics, mouseX, mouseY, lines);
+        int displayIndex = selectedIndex >= 0 ? selectedIndex : hoveredIndex;
+        
+        if (displayIndex >= 0 && displayIndex < displayedItems.size()) {
+            ItemStack stack = displayedItems.get(displayIndex);
+            
+            if (!stack.isEmpty()) {
+                // Item name with rarity color
+                int rarityColor = getItemRarityColor(stack);
+                String name = stack.getHoverName().getString();
+                UIRenderer.drawTruncatedText(graphics, name, detailX, detailY, maxWidth, rarityColor);
+                
+                // Item type/category
+                String type = getItemType(stack);
+                UIRenderer.drawText(graphics, type, detailX, detailY + 14, UIColors.TEXT_SECONDARY);
+                
+                // Stack count
+                if (stack.getCount() > 1) {
+                    UIRenderer.drawText(graphics, "Quantity: " + stack.getCount(), 
+                                       detailX, detailY + 28, UIColors.TEXT_SECONDARY);
+                }
+                
+                // Action hint
+                int hintY = detailsPanel.getY() + detailsPanel.getHeight() - 30;
+                UIRenderer.drawCenteredText(graphics, "Click to select", 
+                    detailsPanel.getX() + detailsPanel.getWidth() / 2, hintY, UIColors.TEXT_MUTED);
+                UIRenderer.drawCenteredText(graphics, "Double-click to withdraw", 
+                    detailsPanel.getX() + detailsPanel.getWidth() / 2, hintY + 12, UIColors.PRIMARY_DIM);
+                
+                return;
+            }
+        }
+        
+        // Empty state
+        int centerX = detailsPanel.getX() + detailsPanel.getWidth() / 2;
+        int centerY = detailsPanel.getContentStartY() + 40;
+        
+        UIRenderer.drawCenteredText(graphics, "Select an item", centerX, centerY, UIColors.TEXT_MUTED);
+        UIRenderer.drawCenteredText(graphics, "to view details", centerX, centerY + 12, UIColors.TEXT_MUTED);
     }
+    
+    private void renderHints(GuiGraphics graphics) {
+        if (displayedItems.isEmpty()) {
+            // No items hint
+            int centerX = inventoryPanel.getX() + inventoryPanel.getWidth() / 2;
+            int centerY = inventoryPanel.getContentStartY() + 60;
+            
+            UIRenderer.drawCenteredText(graphics, "Your System Inventory is empty", 
+                                       centerX, centerY, UIColors.TEXT_MUTED);
+            UIRenderer.drawCenteredText(graphics, "Hold an item and press [V] to store it", 
+                                       centerX, centerY + 14, UIColors.PRIMARY_DIM);
+        }
+    }
+    
+    private int getItemRarityColor(ItemStack stack) {
+        // Check for custom rarity in NBT or use vanilla rarity
+        if (stack.hasTag()) {
+            var tag = stack.getTag();
+            if (tag != null && tag.contains("SoloLevelingRank")) {
+                String rank = tag.getString("SoloLevelingRank");
+                return UIColors.getRarityColor(rank);
+            }
+        }
+        
+        // Fallback to vanilla rarity
+        return switch (stack.getRarity()) {
+            case COMMON -> UIColors.RARITY_COMMON;
+            case UNCOMMON -> UIColors.RARITY_UNCOMMON;
+            case RARE -> UIColors.RARITY_RARE;
+            case EPIC -> UIColors.RARITY_EPIC;
+            default -> UIColors.TEXT;
+        };
+    }
+    
+    private String getItemType(ItemStack stack) {
+        // Get item category
+        if (stack.getItem() instanceof net.minecraft.world.item.SwordItem) return "Weapon - Sword";
+        if (stack.getItem() instanceof net.minecraft.world.item.AxeItem) return "Weapon - Axe";
+        if (stack.getItem() instanceof net.minecraft.world.item.BowItem) return "Weapon - Bow";
+        if (stack.getItem() instanceof net.minecraft.world.item.ArmorItem armor) {
+            return "Armor - " + armor.getType().getName();
+        }
+        if (stack.getItem().isEdible()) return "Consumable - Food";
+        if (stack.getItem() instanceof net.minecraft.world.item.PotionItem) return "Consumable - Potion";
+        return "Item";
+    }
+    
+    private String formatNumber(int number) {
+        if (number >= 1000000) return String.format("%.1fM", number / 1000000.0);
+        if (number >= 1000) return String.format("%.1fK", number / 1000.0);
+        return String.valueOf(number);
+    }
+    
+    // Track double click
+    private long lastClickTime = 0;
+    private int lastClickIndex = -1;
     
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            // Check inventory grid for clicked item
-            int startX = inventoryPanel.getX() + 12;
-            int startY = inventoryPanel.getContentStartY() + 8;
+        if (button == 0 && hoveredIndex >= 0) {
+            long currentTime = System.currentTimeMillis();
             
-            for (int row = 0; row < INVENTORY_ROWS; row++) {
-                for (int col = 0; col < INVENTORY_COLS; col++) {
-                    int index = row * INVENTORY_COLS + col;
-                    int slotX = startX + col * (SLOT_SIZE + SLOT_SPACING);
-                    int slotY = startY + row * (SLOT_SIZE + SLOT_SPACING);
-                    
-                    if (UIRenderer.isMouseOver((int) mouseX, (int) mouseY, slotX, slotY, SLOT_SIZE, SLOT_SIZE)) {
-                        ItemSlot item = index < inventorySlots.size() ? inventorySlots.get(index) : null;
-                        selectedSlot = (selectedSlot == item) ? null : item;
-                        return true;
-                    }
-                }
+            // Check for double click (withdraw)
+            if (hoveredIndex == lastClickIndex && currentTime - lastClickTime < 400) {
+                // Double click - withdraw item
+                withdrawItem(hoveredIndex);
+                selectedIndex = -1;
+                lastClickIndex = -1;
+            } else {
+                // Single click - select
+                selectedIndex = (selectedIndex == hoveredIndex) ? -1 : hoveredIndex;
+                lastClickIndex = hoveredIndex;
+                lastClickTime = currentTime;
             }
+            return true;
         }
         
         return super.mouseClicked(mouseX, mouseY, button);
     }
     
-    // Placeholder item data class
-    private static class ItemSlot {
-        String name;
-        String rank; // E, D, C, B, A, S, SS, SSR
-        String type; // weapon, armor, consumable, material
-        String description;
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        // Scroll the inventory grid
+        if (displayedItems.size() > GRID_COLS * GRID_ROWS) {
+            int totalRows = (displayedItems.size() + GRID_COLS - 1) / GRID_COLS;
+            int maxScroll = Math.max(0, totalRows - GRID_ROWS);
+            
+            scrollOffset = (int) Math.max(0, Math.min(maxScroll, scrollOffset - delta));
+            return true;
+        }
         
-        ItemSlot(String name, String rank, String type, String description) {
-            this.name = name;
-            this.rank = rank;
-            this.type = type;
-            this.description = description;
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+    
+    private void withdrawItem(int index) {
+        if (index >= 0 && index < displayedItems.size()) {
+            // Send withdraw packet to server
+            ModNetworkRegistry.CHANNEL.sendToServer(new WithdrawItemPacket(index));
+            
+            // Optimistic UI update (will be corrected by server sync)
+            LocalPlayer player = Minecraft.getInstance().player;
+            if (player != null) {
+                player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("§b[System] §7Withdrawing item..."),
+                    true
+                );
+            }
         }
     }
 }

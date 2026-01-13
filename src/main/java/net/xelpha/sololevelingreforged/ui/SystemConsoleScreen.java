@@ -234,7 +234,14 @@ public class SystemConsoleScreen extends Screen {
         
         // Render active tab content
         if (activeTabIndex >= 0 && activeTabIndex < tabs.size()) {
-            tabs.get(activeTabIndex).render(graphics, mouseX, mouseY, partialTick);
+            BaseTab tab = tabs.get(activeTabIndex);
+            tab.clearPendingTooltip(); // Clear tooltip before render
+            tab.render(graphics, mouseX, mouseY, partialTick);
+            
+            // Check for tab tooltip
+            if (tab.getPendingTooltip() != null) {
+                setTooltip(tab.getPendingTooltip(), tab.getTooltipX(), tab.getTooltipY());
+            }
         }
         
         // Subtle scanline effect

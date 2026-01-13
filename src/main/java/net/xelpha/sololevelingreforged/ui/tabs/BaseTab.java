@@ -6,6 +6,7 @@ import net.xelpha.sololevelingreforged.ui.components.UIComponent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * Base class for all tab content panels in the Solo Leveling System UI
@@ -19,6 +20,11 @@ public abstract class BaseTab implements UIComponent {
     
     protected final List<UIComponent> components = new ArrayList<>();
     protected PlayerCapability capability;
+    
+    // Tooltip system - allows tabs to show tooltips via parent screen
+    protected BiConsumer<List<String>, int[]> tooltipProvider;
+    protected List<String> pendingTooltip = null;
+    protected int tooltipX, tooltipY;
     
     public BaseTab(int x, int y, int width, int height) {
         this.x = x;
@@ -214,5 +220,49 @@ public abstract class BaseTab implements UIComponent {
         components.clear();
         initialized = false;
         ensureInitialized();
+    }
+    
+    /**
+     * Sets the tooltip provider callback
+     */
+    public void setTooltipProvider(BiConsumer<List<String>, int[]> provider) {
+        this.tooltipProvider = provider;
+    }
+    
+    /**
+     * Shows a tooltip via the parent screen
+     */
+    protected void showTooltip(List<String> lines, int x, int y) {
+        this.pendingTooltip = lines;
+        this.tooltipX = x;
+        this.tooltipY = y;
+    }
+    
+    /**
+     * Gets the pending tooltip if any
+     */
+    public List<String> getPendingTooltip() {
+        return pendingTooltip;
+    }
+    
+    /**
+     * Gets the tooltip X position
+     */
+    public int getTooltipX() {
+        return tooltipX;
+    }
+    
+    /**
+     * Gets the tooltip Y position
+     */
+    public int getTooltipY() {
+        return tooltipY;
+    }
+    
+    /**
+     * Clears any pending tooltip
+     */
+    public void clearPendingTooltip() {
+        this.pendingTooltip = null;
     }
 }

@@ -173,6 +173,19 @@ public final class UIColors {
     /** SSR-Rank - Transcendent (Rainbow shimmer base) */
     public static final int RARITY_SSR = 0xFFFF00FF;
     
+    // Vanilla rarity mappings
+    /** Common (white/gray) */
+    public static final int RARITY_COMMON = 0xFFAAAAAA;
+    
+    /** Uncommon (yellow) */
+    public static final int RARITY_UNCOMMON = 0xFFFFFF55;
+    
+    /** Rare (aqua/cyan) */
+    public static final int RARITY_RARE = 0xFF55FFFF;
+    
+    /** Epic (magenta) */
+    public static final int RARITY_EPIC = 0xFFFF55FF;
+    
     // ══════════════════════════════════════════════════════════════════════════
     // QUEST COLORS - Quest type indicators
     // ══════════════════════════════════════════════════════════════════════════

@@ -441,6 +441,17 @@ Before contributing, familiarize yourself with the [System Architecture & Relati
 ### Debug Logging
 Enable additional logging in `Config.java` for troubleshooting.
 
+## Credits and Acknowledgments
+
+### Asset Credits
+Currently, we are borrowing assets from:
+
+**Zerotekz** - Solo Leveling Arsenal Resourcepack
+- Creator: Zerotekz
+- Link: https://modrinth.com/resourcepack/solo-leveling-arsenal
+
+We appreciate the amazing work done by the Minecraft resourcepack community that helps bring our mod to life visually.
+
 ## License
 
 All Rights Reserved
