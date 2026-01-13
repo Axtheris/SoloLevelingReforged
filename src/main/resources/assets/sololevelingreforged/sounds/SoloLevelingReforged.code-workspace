@@ -6,6 +6,7 @@
 		}
 	],
 	"settings": {
-		"powershell.cwd": "SoloLevelingReforged"
+		"powershell.cwd": "SoloLevelingReforged",
+		"java.compile.nullAnalysis.mode": "automatic"
 	}
 }
