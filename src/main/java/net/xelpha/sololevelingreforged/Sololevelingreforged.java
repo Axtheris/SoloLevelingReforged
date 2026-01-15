@@ -52,6 +52,8 @@ public class Sololevelingreforged {
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so sounds get registered
         ModSounds.SOUND_EVENTS.register(modEventBus);
+        // Register the Deferred Register to the mod event bus so entities get registered
+        ModEntities.ENTITIES.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
@@ -80,6 +82,9 @@ public class Sololevelingreforged {
 
         // Register network packets
         ModNetworkRegistry.registerPackets();
+
+        // Register skills
+        net.xelpha.sololevelingreforged.skills.SkillRegistry.registerSkills();
     }
 
 

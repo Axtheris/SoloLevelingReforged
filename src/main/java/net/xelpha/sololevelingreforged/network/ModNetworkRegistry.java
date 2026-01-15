@@ -38,7 +38,16 @@ public class ModNetworkRegistry {
             AllocateStatPacket::new,
             AllocateStatPacket::handle
         );
-        
+
+        // Register use skill packet
+        CHANNEL.registerMessage(
+            packetId++,
+            UseSkillPacket.class,
+            UseSkillPacket::toBytes,
+            UseSkillPacket::new,
+            UseSkillPacket::handle
+        );
+
         // Register store item packet
         CHANNEL.registerMessage(
             packetId++,

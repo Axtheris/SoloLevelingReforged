@@ -5,6 +5,13 @@
   "key.sololevelingreforged.open_stats": "Open System Console",
   "key.sololevelingreforged.store_item": "Store Item in System",
   "key.sololevelingreforged.show_stats": "Show Player Stats",
+  "key.sololevelingreforged.skill_1": "Skill Slot 1",
+  "key.sololevelingreforged.skill_2": "Skill Slot 2",
+  "key.sololevelingreforged.skill_3": "Skill Slot 3",
+  "key.sololevelingreforged.skill_4": "Skill Slot 4",
+  "key.sololevelingreforged.skill_5": "Skill Slot 5",
+  "key.sololevelingreforged.quick_shadow_extract": "Quick Shadow Extract",
+  "key.sololevelingreforged.quick_dash": "Quick Dash",
 
   "sololevelingreforged.command.stats.no_ap": "No Ability Points available to allocate!",
   "sololevelingreforged.command.stats.opened": "Opening Stat Allocation Screen...",

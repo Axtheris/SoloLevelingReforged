@@ -11,8 +11,10 @@ import net.minecraftforge.fml.common.Mod;
 import net.xelpha.sololevelingreforged.Sololevelingreforged;
 import net.xelpha.sololevelingreforged.core.KeyBindings;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
+import net.xelpha.sololevelingreforged.core.SkillKeyBindings;
 import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
 import net.xelpha.sololevelingreforged.network.StoreItemPacket;
+import net.xelpha.sololevelingreforged.network.UseSkillPacket;
 import net.xelpha.sololevelingreforged.ui.SystemConsoleScreen;
 
 /**
@@ -33,9 +35,12 @@ public class ClientEvents {
 
         // Handle system console keybind (K key) - toggle behavior
         handleSystemKey(minecraft, player);
-        
+
         // Handle store item keybind (V key)
         handleStoreKey(minecraft, player);
+
+        // Handle skill keybinds
+        handleSkillKeys(minecraft, player);
     }
     
     private static void handleSystemKey(Minecraft minecraft, LocalPlayer player) {
@@ -83,5 +88,34 @@ public class ClientEvents {
         }
         
         storeKeyWasPressed = keyIsDown;
+    }
+
+    private static void handleSkillKeys(Minecraft minecraft, LocalPlayer player) {
+        // Check each skill keybind
+        net.minecraft.client.KeyMapping[] skillKeys = {
+            SkillKeyBindings.SKILL_1,
+            SkillKeyBindings.SKILL_2,
+            SkillKeyBindings.SKILL_3,
+            SkillKeyBindings.SKILL_4,
+            SkillKeyBindings.SKILL_5,
+            SkillKeyBindings.QUICK_SHADOW_EXTRACT,
+            SkillKeyBindings.QUICK_DASH
+        };
+
+        for (net.minecraft.client.KeyMapping keyMapping : skillKeys) {
+            if (keyMapping.consumeClick()) {
+                String skillId = SkillKeyBindings.getSkillForKey(keyMapping);
+                if (skillId != null) {
+                    // Send skill usage packet to server
+                    ModNetworkRegistry.CHANNEL.sendToServer(new UseSkillPacket(skillId));
+
+                    // Show activation feedback (actual result comes from server)
+                    player.displayClientMessage(
+                        Component.literal("§7[System] §fActivating " + skillId.replace("_", " ") + "..."),
+                        true
+                    );
+                }
+            }
+        }
     }
 }

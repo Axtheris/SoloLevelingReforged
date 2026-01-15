@@ -3,7 +3,9 @@ package net.xelpha.sololevelingreforged.core;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -15,6 +17,11 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.network.PacketDistributor;
 import net.xelpha.sololevelingreforged.network.ModNetworkRegistry;
 import net.xelpha.sololevelingreforged.network.SyncCapabilityPacket;
+import net.xelpha.sololevelingreforged.skills.Skill;
+import net.xelpha.sololevelingreforged.skills.SkillRegistry;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +67,10 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
     private static final int MAX_INVENTORY_SLOTS = 1000; // Large but not infinite for performance
     private int gold = 0; // System currency
 
+    // Skills System
+    private final Map<ResourceLocation, Skill> learnedSkills = new HashMap<>();
+    private final Map<ResourceLocation, Integer> skillLevels = new HashMap<>();
+
     // Reference to player for calculations
     private Player player;
 
@@ -67,6 +78,10 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
 
     public void setPlayer(Player player) {
         this.player = player;
+    }
+
+    public Player getPlayer() {
+        return player;
     }
 
     // ===== LEVELING SYSTEM =====
@@ -322,6 +337,115 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
         return false;
     }
 
+    // ===== SKILLS SYSTEM =====
+
+    /**
+     * Learn a new skill
+     */
+    public boolean learnSkill(ResourceLocation skillId) {
+        if (learnedSkills.containsKey(skillId)) {
+            return false; // Already learned
+        }
+
+        Skill skill = SkillRegistry.getSkill(skillId);
+        if (skill == null || !skill.canUnlock(this)) {
+            return false;
+        }
+
+        // Create a copy of the skill for this player
+        Skill playerSkill = createSkillInstance(skillId);
+        if (playerSkill != null) {
+            learnedSkills.put(skillId, playerSkill);
+            skillLevels.put(skillId, 1); // Start at level 1
+            if (player instanceof ServerPlayer serverPlayer) {
+                syncToClient(serverPlayer);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Upgrade an existing skill
+     */
+    public boolean upgradeSkill(ResourceLocation skillId) {
+        Skill skill = learnedSkills.get(skillId);
+        if (skill == null || !skill.canLevelUp(player)) {
+            return false;
+        }
+
+        if (skill.levelUp()) {
+            skillLevels.put(skillId, skill.getCurrentLevel());
+            if (player instanceof ServerPlayer serverPlayer) {
+                syncToClient(serverPlayer);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if player has a specific skill
+     */
+    public boolean hasSkill(ResourceLocation skillId) {
+        return learnedSkills.containsKey(skillId);
+    }
+
+    /**
+     * Get a specific skill
+     */
+    public Skill getSkill(ResourceLocation skillId) {
+        return learnedSkills.get(skillId);
+    }
+
+    /**
+     * Get all learned skills
+     */
+    public Map<ResourceLocation, Skill> getAllSkills() {
+        return learnedSkills;
+    }
+
+    /**
+     * Get skill level
+     */
+    public int getSkillLevel(ResourceLocation skillId) {
+        return skillLevels.getOrDefault(skillId, 0);
+    }
+
+    /**
+     * Use a skill (if it's active)
+     */
+    public boolean useSkill(ResourceLocation skillId, ServerPlayer serverPlayer) {
+        Skill skill = learnedSkills.get(skillId);
+        if (skill != null && skill.getType().name().startsWith("ACTIVE")) {
+            return skill.activate(serverPlayer);
+        }
+        return false;
+    }
+
+    /**
+     * Create a skill instance for the player
+     */
+    private Skill createSkillInstance(ResourceLocation skillId) {
+        // This creates new instances of skills for each player
+        // In a full implementation, you'd want to use a factory pattern or codec deserialization
+        switch (skillId.getPath()) {
+            case "shadow_extraction":
+                return new net.xelpha.sololevelingreforged.skills.ShadowExtractionSkill();
+            case "berserk_shadows":
+                return new net.xelpha.sololevelingreforged.skills.BerserkShadowsSkill();
+            case "dash":
+                return new net.xelpha.sololevelingreforged.skills.DashSkill();
+            case "predator":
+                return new net.xelpha.sololevelingreforged.skills.PredatorSkill();
+            // Add other skills as they're implemented
+            default:
+                return null;
+        }
+    }
+
     // ===== GETTERS =====
 
     public int getLevel() { return level; }
@@ -454,6 +578,16 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
         tag.put("systemInventory", inventoryList);
         tag.putInt("gold", gold);
 
+        // Skills
+        ListTag skillsList = new ListTag();
+        for (java.util.Map.Entry<ResourceLocation, Skill> entry : learnedSkills.entrySet()) {
+            CompoundTag skillTag = new CompoundTag();
+            skillTag.putString("id", entry.getKey().toString());
+            skillTag.putInt("level", entry.getValue().getCurrentLevel());
+            skillsList.add(skillTag);
+        }
+        tag.put("learnedSkills", skillsList);
+
         return tag;
     }
 
@@ -496,6 +630,31 @@ public class PlayerCapability implements ICapabilitySerializable<CompoundTag> {
             }
         }
         gold = tag.getInt("gold");
+
+        // Skills
+        learnedSkills.clear();
+        skillLevels.clear();
+        if (tag.contains("learnedSkills", Tag.TAG_LIST)) {
+            ListTag skillsList = tag.getList("learnedSkills", Tag.TAG_COMPOUND);
+            for (int i = 0; i < skillsList.size(); i++) {
+                CompoundTag skillTag = skillsList.getCompound(i);
+                String skillIdStr = skillTag.getString("id");
+                int skillLevel = skillTag.getInt("level");
+
+                ResourceLocation skillId = ResourceLocation.tryParse(skillIdStr);
+                if (skillId != null) {
+                    Skill skill = createSkillInstance(skillId);
+                    if (skill != null) {
+                        // Set the skill level
+                        for (int lvl = 1; lvl < skillLevel; lvl++) {
+                            skill.levelUp();
+                        }
+                        learnedSkills.put(skillId, skill);
+                        skillLevels.put(skillId, skillLevel);
+                    }
+                }
+            }
+        }
     }
 
     // ===== CAPABILITY PROVIDER =====

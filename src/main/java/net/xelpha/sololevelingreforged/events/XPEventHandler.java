@@ -7,6 +7,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.xelpha.sololevelingreforged.Sololevelingreforged;
 import net.xelpha.sololevelingreforged.core.PlayerCapability;
+import net.xelpha.sololevelingreforged.skills.Skill;
 
 /**
  * XP Event Handler - Listens for Entity Death events and grants XP to players
@@ -29,9 +30,25 @@ public class XPEventHandler {
         // Calculate XP based on target's max health and difficulty
         int xpGain = calculateXP(target);
 
-        // Add XP to player's System Capability
+        // Add XP to player's System Capability (with Predator skill multiplier)
         player.getCapability(PlayerCapability.PLAYER_SYSTEM_CAP).ifPresent(cap -> {
-            cap.addExperience(xpGain);
+            // Apply Predator skill multiplier if available
+            float predatorMultiplier = 1.0f;
+            if (cap.hasSkill(Sololevelingreforged.loc("predator"))) {
+                Skill predatorSkill = cap.getSkill(Sololevelingreforged.loc("predator"));
+                if (predatorSkill instanceof net.xelpha.sololevelingreforged.skills.PredatorSkill predator) {
+                    predatorMultiplier = predator.getXpMultiplier(target);
+                }
+            }
+
+            int finalXpGain = Math.round(xpGain * predatorMultiplier);
+            cap.addExperience(finalXpGain);
+
+            // Show predator bonus message if applicable
+            if (predatorMultiplier > 1.0f && finalXpGain > xpGain) {
+                player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    String.format("Predator bonus: +%.0f%% XP!", (predatorMultiplier - 1.0f) * 100)));
+            }
         });
     }
 
